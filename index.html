@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WireFlow — Wirality Media</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ── CLOUDINARY CONFIG ── */
+const CLOUDINARY_CLOUD = 'dnhktlm2m';
+const CLOUDINARY_PRESET = 'wireflow_uploads';
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/auto/upload`;
+
+async function uploadToCloudinary(file, onProgress){
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    fd.append('folder', 'wireflow');
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', CLOUDINARY_UPLOAD_URL);
+    xhr.upload.onprogress = e => { if(e.lengthComputable && onProgress) onProgress(Math.round(e.loaded/e.total*100)); };
+    xhr.onload = () => {
+      if(xhr.status === 200){
+        const r = JSON.parse(xhr.responseText);
+        resolve({ url: r.secure_url, name: file.name, size: file.size, type: file.type, public_id: r.public_id });
+      } else { reject(new Error('Upload failed: ' + xhr.statusText)); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(fd);
+  });
+}
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#F5F4F0;--surf:#FFF;--surf2:#EFEDE7;--surf3:#E6E3DB;
+  --bdr:rgba(0,0,0,0.08);--bdr2:rgba(0,0,0,0.14);--bdr3:rgba(0,0,0,0.22);
+  --tx:#18170F;--tx2:#6A6860;--tx3:#A8A69E;
+  --grn:#1D9E75;--grn-bg:#E1F5EE;--grn-tx:#085041;
+  --amb:#D4840A;--amb-bg:#FDF3E0;--amb-tx:#7A4500;
+  --blu:#2B7FD4;--blu-bg:#E8F2FC;--blu-tx:#0C3D6E;
+  --red:#C94040;--red-bg:#FDEAEA;--red-tx:#6E1515;
+  --pur:#6B4FBB;--pur-bg:#F0ECFC;--pur-tx:#3A2770;
+  --gry-bg:#EDECE8;--gry-tx:#4A4945;
+  --r:8px;--rsm:5px;--rlg:12px;--sb:220px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;font-size:14px;}
+.app{display:flex;height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sb);min-width:var(--sb);background:var(--surf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;}
+.logo{padding:16px 14px 12px;border-bottom:1px solid var(--bdr);}
+.logo-row{display:flex;align-items:center;gap:8px;}
+.logo-box{width:26px;height:26px;background:var(--tx);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-box svg{width:13px;height:13px;}
+.logo-name{font-size:14px;font-weight:600;letter-spacing:-.3px;}
+.logo-org{font-size:10px;color:var(--tx3);margin-top:1px;padding-left:34px;}
+.nav{flex:1;padding:8px;overflow-y:auto;}
+.nav-sec{font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.7px;text-transform:uppercase;padding:10px 8px 4px;}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--rsm);cursor:pointer;font-size:13px;color:var(--tx2);transition:all .12s;user-select:none;}
+.ni:hover{background:var(--surf2);color:var(--tx);}
+.ni.active{background:var(--tx);color:#fff;}
+.ni.active .pip{opacity:.4;}
+.pip{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--bdr2);}
+.pip.g{background:var(--grn)}.pip.a{background:var(--amb)}.pip.b{background:var(--blu)}.pip.r{background:var(--red)}.pip.p{background:var(--pur)}
+.ni-badge{margin-left:auto;font-size:10px;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-weight:700;}
+.user-bar{padding:10px 12px;border-top:1px solid var(--bdr);display:flex;align-items:center;gap:8px;cursor:pointer;}
+.user-bar:hover{background:var(--surf2);}
+.uname{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.urole{font-size:10px;color:var(--tx3);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.topbar{height:50px;background:var(--surf);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 18px;gap:10px;flex-shrink:0;}
+.page-title{font-size:15px;font-weight:600;flex:1;letter-spacing:-.3px;}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-family:inherit;border:1px solid var(--bdr2);border-radius:var(--rsm);background:var(--surf);color:var(--tx);cursor:pointer;transition:all .12s;white-space:nowrap;font-weight:500;}
+.btn:hover{background:var(--surf2);}
+.btn:active{transform:scale(.98);}
+.btn-dark{background:var(--tx);color:#fff;border-color:var(--tx);}
+.btn-dark:hover{background:#2a2820;}
+.btn-grn{background:var(--grn);color:#fff;border-color:var(--grn);}
+.btn-grn:hover{background:#0F6E56;}
+.btn-red{background:var(--red);color:#fff;border-color:var(--red);}
+.btn-xs{padding:4px 10px;font-size:11px;}
+.btn-sm{padding:5px 11px;font-size:12px;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.b-backlog{background:var(--gry-bg);color:var(--gry-tx);}
+.b-planning{background:var(--pur-bg);color:var(--pur-tx);}
+.b-inprogress{background:var(--amb-bg);color:var(--amb-tx);}
+.b-review{background:var(--blu-bg);color:var(--blu-tx);}
+.b-approved{background:var(--grn-bg);color:var(--grn-tx);}
+.b-rejected{background:var(--red-bg);color:var(--red-tx);}
+.b-high{background:var(--red-bg);color:var(--red-tx);}
+.b-normal{background:var(--gry-bg);color:var(--gry-tx);}
+.b-won{background:var(--grn-bg);color:var(--grn-tx);}
+.b-lost{background:var(--gry-bg);color:var(--gry-tx);}
+.b-pitched{background:var(--blu-bg);color:var(--blu-tx);}
+.b-followup{background:var(--amb-bg);color:var(--amb-tx);}
+.b-prospecting{background:var(--gry-bg);color:var(--gry-tx);}
+.b-announce{background:var(--blu-bg);color:var(--blu-tx);}
+.b-done{background:var(--grn-bg);color:var(--grn-tx);}
+.b-overdue{background:var(--red-bg);color:var(--red-tx);}
+
+/* AVATAR */
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:'DM Mono',monospace;}
+.av-sm{width:22px;height:22px;font-size:9px;}
+.av-lg{width:36px;height:36px;font-size:13px;}
+.av-xl{width:44px;height:44px;font-size:15px;}
+.av-g{background:#9FE1CB;color:#085041;}.av-b{background:#B5D4F4;color:#0C447C;}.av-a{background:#FAC775;color:#633806;}.av-p{background:#CECBF6;color:#3C3489;}.av-r{background:#F5C4B3;color:#712B13;}.av-k{background:#C0DD97;color:#27500A;}.av-t{background:#F4C0D1;color:#72243E;}.av-o{background:#FDE8C8;color:#8B4A00;}.av-c{background:#C8E8FD;color:#0A4A6E;}
+
+/* PANELS */
+.panel{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rlg);overflow:hidden;}
+.ph{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--bdr);}
+.ph-title{font-size:13px;font-weight:600;flex:1;}
+
+/* SCROLLABLE AREAS */
+.scroll{overflow-y:auto;flex:1;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ─── DASHBOARD ─── */
+.dash-wrap{overflow-y:auto;padding:18px 20px;flex:1;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.stat-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;}
+.stat-lbl{font-size:10px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.stat-val{font-size:26px;font-weight:300;letter-spacing:-1px;line-height:1;margin-bottom:2px;}
+.stat-sub{font-size:11px;color:var(--tx3);}
+.dash-cols{display:grid;grid-template-columns:1fr 1fr 280px;gap:12px;}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:8px;}
+
+/* ACTION ITEM ROW */
+.ai-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .1s;}
+.ai-row:last-child{border-bottom:none;}
+.ai-row:hover{background:var(--surf2);}
+.ai-name{flex:1;font-size:13px;line-height:1.35;min-width:0;}
+.ai-meta{font-size:11px;color:var(--tx3);margin-top:1px;}
+.overdue-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0;}
+
+/* ─── ACCOUNTS ─── */
+.acc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:20px;overflow-y:auto;}
+.acc-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:all .15s;}
+.acc-card:hover{border-color:var(--bdr2);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.06);}
+.acc-emoji{font-size:22px;margin-bottom:6px;}
+.acc-name{font-size:14px;font-weight:600;margin-bottom:2px;}
+.acc-type{font-size:11px;color:var(--tx3);margin-bottom:10px;}
+.acc-lead{font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:4px;margin-bottom:10px;}
+.acc-stats{display:flex;gap:14px;border-top:1px solid var(--bdr);padding-top:10px;}
+.acc-stat .v{font-size:18px;font-weight:300;letter-spacing:-.4px;}
+.acc-stat .l{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;}
+
+/* ─── KANBAN ─── */
+.kanban-wrap{display:flex;gap:11px;padding:14px 18px;overflow-x:auto;overflow-y:hidden;flex:1;align-items:flex-start;}
+.k-col{width:230px;min-width:230px;background:var(--surf2);border-radius:var(--r);display:flex;flex-direction:column;max-height:calc(100vh - 140px);}
+.k-col-head{padding:9px 11px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.k-col-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);flex:1;}
+.k-count{font-size:11px;background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:1px 7px;color:var(--tx3);}
+.k-cards{flex:1;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:6px;}
+.k-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:9px 11px;cursor:pointer;transition:all .12s;}
+.k-card:hover{border-color:var(--bdr2);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.k-card-name{font-size:13px;font-weight:500;line-height:1.35;margin-bottom:7px;}
+.k-card-foot{display:flex;align-items:center;gap:5px;}
+.k-due{font-size:10px;color:var(--tx3);flex:1;}
+.k-due.late{color:var(--red);font-weight:500;}
+.k-add{padding:6px 7px;flex-shrink:0;}
+.k-add-btn{width:100%;padding:6px;font-size:12px;color:var(--tx3);background:transparent;border:1px dashed var(--bdr2);border-radius:var(--rsm);cursor:pointer;font-family:inherit;transition:all .12s;}
+.k-add-btn:hover{background:var(--surf);color:var(--tx);border-style:solid;}
+
+/* ─── TABS ─── */
+.tabs{display:flex;gap:2px;padding:0 18px;border-bottom:1px solid var(--bdr);background:var(--surf);flex-shrink:0;}
+.tab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.tab:hover{color:var(--tx);}
+.tab.active{color:var(--tx);border-bottom-color:var(--tx);}
+
+/* ─── PITCH DOCS ─── */
+.docs-wrap{overflow-y:auto;padding:18px;flex:1;}
+.doc-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bdr);transition:background .1s;}
+.doc-row:last-child{border-bottom:none;}
+.doc-row:hover{background:var(--surf2);}
+.doc-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.doc-name{flex:1;font-size:13px;font-weight:500;}
+.doc-meta{font-size:11px;color:var(--tx3);}
+.doc-type-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.dt-brief{background:#E8F4FF;color:#1A4D7C;}
+.dt-deck{background:#F0ECFC;color:#3A2770;}
+.dt-report{background:#E1F5EE;color:#085041;}
+.dt-proposal{background:#FDF3E0;color:#7A4500;}
+.dt-other{background:#EDECE8;color:#4A4945;}
+
+/* ─── OPS ─── */
+.ops-wrap{overflow-y:auto;padding:18px;flex:1;}
+.ops-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .1s;}
+.ops-row:last-child{border-bottom:none;}
+.ops-row:hover{background:var(--surf2);}
+.ops-name{flex:1;font-size:13px;font-weight:500;}
+.ops-dates{font-size:11px;color:var(--tx3);}
+.progress-wrap{width:70px;}
+.progress-bar{height:4px;background:var(--surf3);border-radius:2px;overflow:hidden;margin-top:3px;}
+.progress-fill{height:100%;background:var(--grn);border-radius:2px;transition:width .3s;}
+
+/* ─── FEED ─── */
+.feed-wrap{overflow-y:auto;padding:18px;flex:1;display:flex;flex-direction:column;gap:0;}
+.feed-day{font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.5px;text-transform:uppercase;padding:12px 0 6px;}
+.feed-item{display:flex;gap:10px;padding:10px 14px;border-radius:var(--r);transition:background .1s;}
+.feed-item:hover{background:var(--surf2);}
+.feed-body{flex:1;min-width:0;}
+.feed-top{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.feed-who{font-size:12px;font-weight:600;}
+.feed-time{font-size:11px;color:var(--tx3);margin-left:auto;}
+.feed-text{font-size:13px;line-height:1.5;color:var(--tx);}
+.feed-tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;}
+.ft-task{background:var(--blu-bg);color:var(--blu-tx);}
+.ft-pitch{background:var(--amb-bg);color:var(--amb-tx);}
+.ft-announce{background:var(--pur-bg);color:var(--pur-tx);}
+.ft-doc{background:var(--grn-bg);color:var(--grn-tx);}
+
+/* ─── CHAT ─── */
+.chat-layout{display:flex;flex:1;overflow:hidden;}
+.chat-sb{width:210px;min-width:210px;background:var(--surf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;}
+.chat-sb-head{padding:11px 12px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.7px;text-transform:uppercase;}
+.chat-dm-list{flex:1;overflow-y:auto;padding:6px;}
+.cdm{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--rsm);cursor:pointer;transition:background .1s;}
+.cdm:hover{background:var(--surf2);}
+.cdm.active{background:var(--surf2);}
+.cdm-info{flex:1;min-width:0;}
+.cdm-name{font-size:13px;font-weight:500;}
+.cdm-preview{font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cdm-badge{background:var(--red);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center;}
+.online{width:7px;height:7px;border-radius:50%;background:#22C55E;border:1.5px solid var(--surf);position:absolute;bottom:0;right:0;}
+.av-wrap{position:relative;}
+.chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.chat-topbar{padding:11px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:var(--surf);flex-shrink:0;}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
+.msg{display:flex;gap:8px;align-items:flex-start;max-width:100%;}
+.msg.me{flex-direction:row-reverse;}
+.msg-body{max-width:68%;}
+.msg.me .msg-body{align-items:flex-end;display:flex;flex-direction:column;}
+.msg-meta{font-size:10px;color:var(--tx3);margin-bottom:3px;}
+.msg-bubble{padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.5;word-break:break-word;}
+.msg-bubble.their{background:var(--surf2);border-bottom-left-radius:3px;}
+.msg-bubble.mine{background:var(--tx);color:#fff;border-bottom-right-radius:3px;}
+.chat-input-wrap{padding:10px 14px;border-top:1px solid var(--bdr);background:var(--surf);flex-shrink:0;}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-input{flex:1;padding:8px 12px;font-size:13px;border:1px solid var(--bdr2);border-radius:18px;background:var(--surf2);color:var(--tx);font-family:inherit;resize:none;outline:none;max-height:90px;line-height:1.4;}
+.chat-input:focus{border-color:var(--blu);background:var(--surf);}
+
+/* ─── PEOPLE ─── */
+.people-wrap{overflow-y:auto;padding:18px;flex:1;}
+.people-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.p-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:16px 12px;text-align:center;position:relative;}
+.p-card .edit-btn{position:absolute;top:8px;right:8px;opacity:0;transition:opacity .15s;}
+.p-card:hover .edit-btn{opacity:1;}
+.p-name{font-size:13px;font-weight:600;margin:8px 0 2px;}
+.p-role{font-size:11px;color:var(--tx3);margin-bottom:8px;}
+.p-tasks{font-size:11px;color:var(--tx2);}
+.p-tasks strong{color:var(--tx);font-weight:600;}
+.add-person-card{background:transparent;border:1px dashed var(--bdr2);border-radius:var(--r);padding:16px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;min-height:140px;}
+.add-person-card:hover{background:var(--surf);border-style:solid;}
+
+/* ─── DRAWER ─── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;display:none;backdrop-filter:blur(2px);}
+.overlay.open{display:flex;align-items:flex-end;justify-content:flex-end;}
+.drawer{width:420px;height:100vh;background:var(--surf);border-left:1px solid var(--bdr);display:flex;flex-direction:column;animation:slin .18s ease;}
+@keyframes slin{from{transform:translateX(24px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.dh{padding:13px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.dh-title{font-size:14px;font-weight:600;flex:1;}
+.db{flex:1;overflow-y:auto;padding:16px;}
+
+/* ─── LOGIN ─── */
+.lov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.lov.open{display:flex;}
+.lov-box{background:var(--surf);border-radius:var(--rlg);width:290px;overflow:hidden;border:1px solid var(--bdr);}
+.lov-head{padding:12px 14px;border-bottom:1px solid var(--bdr);font-size:13px;font-weight:600;}
+.lov-list{padding:6px;max-height:380px;overflow-y:auto;}
+.lov-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--rsm);cursor:pointer;transition:background .1s;}
+.lov-row:hover{background:var(--surf2);}
+.lov-row.active{background:var(--grn-bg);}
+
+/* ─── FORMS ─── */
+.fg{margin-bottom:13px;}
+.fl{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;}
+.fi{width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--bdr2);border-radius:var(--rsm);background:var(--surf);color:var(--tx);font-family:inherit;transition:border-color .12s;}
+.fi:focus{outline:none;border-color:var(--blu);}
+select.fi{cursor:pointer;}
+textarea.fi{min-height:70px;resize:vertical;line-height:1.5;}
+.fi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.divider{height:1px;background:var(--bdr);margin:14px 0;}
+.cmt{display:flex;gap:8px;margin-bottom:11px;}
+.cmt-body{flex:1;}
+.cmt-meta{font-size:10px;color:var(--tx3);margin-bottom:2px;}
+.cmt-meta strong{color:var(--tx2);}
+.cmt-text{font-size:13px;line-height:1.5;}
+.empty{padding:28px;text-align:center;color:var(--tx3);font-size:13px;}
+
+/* ─── TASK DETAIL PANEL (full right panel like ClickUp) ─── */
+.task-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.22);z-index:300;display:none;backdrop-filter:blur(1px);}
+.task-overlay.open{display:flex;align-items:stretch;justify-content:flex-end;}
+.task-panel{width:680px;height:100vh;background:var(--surf);border-left:1px solid var(--bdr);display:flex;flex-direction:column;animation:slin .18s ease;}
+.task-panel-head{padding:14px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--surf);}
+.task-panel-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+.task-panel-main{flex:1;padding:20px 24px;border-right:1px solid var(--bdr);min-width:0;}
+.task-panel-activity{width:260px;min-width:260px;border-left:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0;}
+.tpa-head{padding:12px 14px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;}
+.tpa-list{flex:1;overflow-y:auto;padding:8px 0;}
+.tpa-item{padding:8px 14px;font-size:12px;color:var(--tx2);line-height:1.4;border-bottom:1px solid var(--bdr);}
+.tpa-item:last-child{border-bottom:none;}
+.tpa-time{font-size:10px;color:var(--tx3);margin-top:2px;}
+.tpa-cmt{padding:10px 14px;border-top:1px solid var(--bdr);flex-shrink:0;}
+.task-title-input{font-size:22px;font-weight:600;border:none;outline:none;background:transparent;color:var(--tx);width:100%;margin-bottom:16px;letter-spacing:-.4px;resize:none;font-family:'DM Sans',sans-serif;line-height:1.2;}
+.task-field-row{display:grid;grid-template-columns:130px 1fr;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);gap:8px;}
+.task-field-row:last-of-type{border-bottom:none;}
+.tfl{font-size:12px;color:var(--tx3);font-weight:500;display:flex;align-items:center;gap:5px;}
+.tfv{font-size:13px;}
+.tfv select,.tfv input[type=date],.tfv input[type=text]{border:none;background:transparent;font-size:13px;color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;outline:none;padding:2px 4px;border-radius:3px;}
+.tfv select:hover,.tfv input:hover{background:var(--surf2);}
+.task-section{margin-top:18px;}
+.task-section-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.desc-area{width:100%;border:1px solid transparent;border-radius:var(--rsm);padding:8px;font-size:13px;line-height:1.6;color:var(--tx);font-family:'DM Sans',sans-serif;resize:vertical;min-height:80px;background:transparent;transition:border-color .12s;}
+.desc-area:hover{background:var(--surf2);}
+.desc-area:focus{outline:none;border-color:var(--bdr2);background:var(--surf);}
+.subtask-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:var(--rsm);transition:background .1s;}
+.subtask-row:hover{background:var(--surf2);}
+.subtask-row:hover .del-btn{opacity:1;}
+.subtask-text{flex:1;font-size:13px;border:none;background:transparent;outline:none;font-family:'DM Sans',sans-serif;color:var(--tx);}
+.subtask-text.done-txt{text-decoration:line-through;color:var(--tx3);}
+.del-btn{opacity:0;background:none;border:none;cursor:pointer;color:var(--tx3);font-size:13px;padding:2px 4px;border-radius:3px;transition:all .1s;}
+.del-btn:hover{background:var(--red-bg);color:var(--red-tx);}
+.checklist-row{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:var(--rsm);transition:background .1s;}
+.checklist-row:hover{background:var(--surf2);}
+.checklist-row:hover .del-btn{opacity:1;}
+.cl-text{flex:1;font-size:13px;border:none;background:transparent;outline:none;font-family:'DM Sans',sans-serif;color:var(--tx);}
+.cl-text.done-txt{text-decoration:line-through;color:var(--tx3);}
+.attach-row{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surf2);border-radius:var(--rsm);margin-bottom:6px;transition:background .1s;}
+.attach-row:hover{background:var(--surf3);}
+.attach-row:hover .del-btn{opacity:1;}
+.attach-icon{font-size:18px;flex-shrink:0;}
+.attach-name{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.attach-meta{font-size:11px;color:var(--tx3);}
+.add-row-btn{display:flex;align-items:center;gap:6px;padding:5px 4px;font-size:12px;color:var(--tx3);cursor:pointer;border-radius:var(--rsm);transition:background .1s;border:none;background:transparent;font-family:'DM Sans',sans-serif;}
+.add-row-btn:hover{background:var(--surf2);color:var(--tx);}
+.cmt-input-row{display:flex;gap:8px;align-items:flex-end;}
+.cmt-area{flex:1;padding:8px 10px;font-size:13px;border:1px solid var(--bdr2);border-radius:var(--rsm);background:var(--surf);color:var(--tx);font-family:'DM Sans',sans-serif;resize:none;outline:none;min-height:44px;line-height:1.4;}
+.cmt-area:focus{border-color:var(--blu);}
+/* Custom stages modal */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:400;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
+.modal-ov.open{display:flex;}
+.modal-box{background:var(--surf);border-radius:var(--rlg);width:460px;max-height:80vh;overflow-y:auto;border:1px solid var(--bdr);}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;}
+.modal-body{padding:18px;}
+.stage-edit-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+
+
+/* ─── LEADERBOARD ─── */
+.lb-wrap{overflow-y:auto;padding:20px;flex:1;}
+.lb-hero{background:linear-gradient(135deg,var(--tx) 0%,#3a3830 100%);border-radius:var(--rlg);padding:24px;color:#fff;margin-bottom:18px;display:flex;align-items:center;gap:20px;}
+.lb-hero-crown{font-size:48px;line-height:1;}
+.lb-hero-info{flex:1;}
+.lb-hero-name{font-size:22px;font-weight:600;letter-spacing:-.4px;}
+.lb-hero-sub{font-size:13px;opacity:.7;margin-top:2px;}
+.lb-hero-count{font-size:36px;font-weight:300;letter-spacing:-1px;text-align:right;}
+.lb-hero-clbl{font-size:11px;opacity:.6;text-align:right;}
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:8px;transition:all .12s;}
+.lb-row:hover{border-color:var(--bdr2);transform:translateX(2px);}
+.lb-rank{font-size:18px;font-weight:300;color:var(--tx3);width:28px;text-align:center;flex-shrink:0;}
+.lb-name{flex:1;font-size:14px;font-weight:500;}
+.lb-role{font-size:11px;color:var(--tx3);}
+.lb-bar-wrap{width:140px;flex-shrink:0;}
+.lb-bar{height:6px;background:var(--surf2);border-radius:3px;overflow:hidden;margin-top:4px;}
+.lb-bar-fill{height:100%;border-radius:3px;transition:width .4s ease;}
+.lb-count{font-size:18px;font-weight:300;letter-spacing:-.5px;color:var(--tx);width:36px;text-align:right;flex-shrink:0;}
+.lb-unit{font-size:10px;color:var(--tx3);text-align:right;margin-top:1px;}
+.lb-medal{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+.lb-empty{text-align:center;padding:40px;color:var(--tx3);font-size:13px;}
+.lb-week{font-size:11px;color:var(--tx3);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+/* Quick-add person panel */
+.qa-panel{position:fixed;bottom:70px;left:8px;width:204px;background:var(--surf);border:1px solid var(--bdr2);border-radius:var(--rlg);padding:14px;z-index:250;display:none;box-shadow:0 8px 24px rgba(0,0,0,.12);animation:slin .15s ease;}
+.qa-panel.open{display:block;}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-row">
+        <div class="logo-box"><svg viewBox="0 0 13 13" fill="none"><rect x="1" y="1" width="4.5" height="4.5" rx="1.2" fill="white"/><rect x="7.5" y="1" width="4.5" height="4.5" rx="1.2" fill="white" opacity=".6"/><rect x="1" y="7.5" width="4.5" height="4.5" rx="1.2" fill="white" opacity=".6"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx="1.2" fill="white" opacity=".3"/></svg></div>
+        <span class="logo-name">WireFlow</span>
+      </div>
+      <div class="logo-org">Wirality Media</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-sec">Workspace</div>
+      <div class="ni active" data-v="dashboard" onclick="goNav(this,'dashboard')"><div class="pip g"></div>Dashboard</div>
+      <div class="nav-sec">Clients</div>
+      <div id="acct-nav"></div>
+      <div class="nav-sec">Pipeline</div>
+      <div class="ni" data-v="pitches" onclick="goNav(this,'pitches')"><div class="pip a"></div>Pitches</div>
+      <div class="nav-sec">Team</div>
+      <div class="ni" data-v="ops" onclick="goNav(this,'ops')"><div class="pip b"></div>Internal ops</div>
+      <div class="ni" data-v="feed" onclick="goNav(this,'feed')"><div class="pip r"></div>Activity log</div>
+      <div class="ni" data-v="chat" onclick="goNav(this,'chat')"><div class="pip p"></div>Chat <span class="ni-badge" id="ubadge" style="display:none">0</span></div>
+      <div class="ni" data-v="people" onclick="goNav(this,'people')"><div class="pip"></div>People</div>
+      <div class="ni" data-v="leaderboard" onclick="goNav(this,'leaderboard')"><div class="pip" style="background:#F59E0B;"></div>Leaderboard 🏆</div>
+    </nav>
+    <div class="user-bar" onclick="openLov()">
+      <div class="av av-k" id="sb-av">KA</div>
+      <div style="flex:1;min-width:0;"><div class="uname" id="sb-name">Karan</div><div class="urole" id="sb-role">COO</div></div>
+      <span style="font-size:11px;color:var(--tx3);">↕</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar" id="topbar">
+      <div class="page-title" id="ptitle">Dashboard</div>
+      <div id="tbar-actions" style="display:flex;align-items:center;gap:8px;"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div class="overlay" id="ov" onclick="closeDr(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="dh"><div class="dh-title" id="dt">—</div><button class="btn btn-xs" onclick="closeDr()">✕</button></div>
+    <div class="db" id="db"></div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="lov" id="lov" onclick="closeLov(event)">
+  <div class="lov-box" onclick="event.stopPropagation()">
+    <div class="lov-head">Switch user</div>
+    <div class="lov-list" id="ll"></div>
+  </div>
+</div>
+
+<script>
+/* ══════ FIREBASE ══════ */
+let db=null,chatRef=null,fbOk=false;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDJBEfnLhxJz29LUP78wGbldXLcx32OfiU",
+  authDomain: "wireflow-wirality.firebaseapp.com",
+  databaseURL: "https://wireflow-wirality-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "wireflow-wirality",
+  storageBucket: "wireflow-wirality.firebasestorage.app",
+  messagingSenderId: "49109672670",
+  appId: "1:49109672670:web:456007d8e5e368329bd84f"
+};
+try{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db=firebase.database();
+  chatRef=db.ref('wireflow_chat');
+  fbOk=true;
+  console.log('Firebase connected ✅');
+}catch(e){console.warn('Firebase offline — using localStorage for chat', e);}
+
+/* ── Firebase helpers for team + accounts persistence ── */
+function fbSaveTeam(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_team').set(TEAM).catch(e=>console.warn('Team save failed',e));
+}
+function fbSaveAccounts(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_accounts').set(ACCTS).catch(e=>console.warn('Accounts save failed',e));
+}
+function fbSaveTasks(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_tasks').set(tasks).catch(e=>console.warn('Tasks save failed',e));
+}
+function fbSavePitches(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_pitches').set(pitches).catch(e=>console.warn('Pitches save failed',e));
+}
+function fbSaveOps(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_ops').set(ops).catch(e=>console.warn('Ops save failed',e));
+}
+function fbSaveApprovals(){
+  if(!fbOk||!db)return;
+  db.ref('wireflow_approvals').set(approvalLog).catch(e=>console.warn('Approvals save failed',e));
+}
+function fbSaveAll(){
+  fbSaveTasks();fbSavePitches();fbSaveOps();
+}
+function fbLoadTeamAndAccounts(cb){
+  if(!fbOk||!db){cb&&cb();return;}
+  const loads=[
+    db.ref('wireflow_team').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){TEAM.length=0;s.forEach(m=>TEAM.push(m));}}
+    }),
+    db.ref('wireflow_accounts').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){ACCTS.length=0;s.forEach(a=>ACCTS.push(a));}}
+    }),
+    db.ref('wireflow_tasks').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){tasks.length=0;s.forEach(t=>tasks.push(t));}}
+    }),
+    db.ref('wireflow_pitches').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){pitches.length=0;s.forEach(p=>pitches.push(p));}}
+    }),
+    db.ref('wireflow_ops').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){ops.length=0;s.forEach(o=>ops.push(o));}}
+    }),
+    db.ref('wireflow_approvals').once('value').then(snap=>{
+      if(snap.exists()){const s=snap.val();if(Array.isArray(s)&&s.length>0){approvalLog.length=0;s.forEach(a=>approvalLog.push(a));}}
+    }),
+  ];
+  Promise.all(loads).then(()=>{ cb&&cb(); }).catch(e=>{console.warn('Load failed',e);cb&&cb();});
+}
+
+/* ══════ DATA ══════ */
+const ACCTS=[
+  {id:'mobikwik',  name:'MobiKwik',        type:'Performance + Social',     lead:'keerthi',emoji:'💳',color:'av-b'},
+  {id:'dreamfolks',name:'DreamFolks',      type:'Campaign (Apr–May 2026)',  lead:'karan',  emoji:'✈️',color:'av-g'},
+  {id:'laundrymate',name:'LaundryMate',    type:'Performance + Social',     lead:'keerthi',emoji:'👕',color:'av-a'},
+  {id:'tara',      name:'Tara Healthcare', type:'Social + Branding',        lead:'adi',    emoji:'🏥',color:'av-p'},
+  {id:'magniflex', name:'Magniflex',       type:'Influencer + Social',      lead:'keerthi',emoji:'🛏️',color:'av-r'},
+  {id:'gocolors',  name:'Go Colors',       type:'Performance (Onboarding)', lead:'karan',  emoji:'🎨',color:'av-k'},
+  {id:'inmobi',    name:'InMobi',          type:'Social Strategy',          lead:'adi',    emoji:'📱',color:'av-b'},
+  {id:'zaakpay',   name:'Zaakpay',         type:'LinkedIn Content',         lead:'abhijna',emoji:'💰',color:'av-g'},
+  {id:'bikaji',    name:'Bikaji',          type:'Social + Content',         lead:'keerthi',emoji:'🍿',color:'av-a'},
+];
+let TEAM=[
+  {id:'karan',  name:'Karan',   ini:'KA',role:'COO',             color:'av-k',lead:true, admin:true},
+  {id:'keerthi',name:'Keerthi', ini:'KE',role:'Head of Business',color:'av-b',lead:true, admin:false},
+  {id:'adi',    name:'Adi',     ini:'AD',role:'Creative Strategy',color:'av-g',lead:true, admin:false},
+  {id:'abhijna',name:'Abhijna', ini:'AB',role:'Copywriter',      color:'av-p',lead:false,admin:false},
+  {id:'isaac',  name:'Isaac',   ini:'IS',role:'Designer',        color:'av-r',lead:false,admin:false},
+  {id:'gokul',  name:'Gokul',   ini:'GO',role:'Designer',        color:'av-a',lead:false,admin:false},
+  {id:'devi',   name:'Devi',    ini:'DV',role:'Art Direction',   color:'av-t',lead:false,admin:false},
+  {id:'nisha',  name:'Nisha',   ini:'NI',role:'Account Manager', color:'av-g',lead:false,admin:false},
+  {id:'monish', name:'Monish',  ini:'MO',role:'Account Manager', color:'av-p',lead:false,admin:false},
+  {id:'satya',  name:'Satya',   ini:'SA',role:'Admin',           color:'av-r',lead:false,admin:false},
+];
+const STAGES=[
+  {id:'backlog',   label:'Backlog'},
+  {id:'planning',  label:'Planning'},
+  {id:'inprogress',label:'In Progress'},
+  {id:'review',    label:'Ready for Review'},
+  {id:'approved',  label:'Approved'},
+  {id:'rejected',  label:'Rejected'},
+];
+const P_STAGES=[
+  {id:'prospecting',label:'Prospecting'},
+  {id:'pitched',    label:'Pitched'},
+  {id:'followup',   label:'Follow-up'},
+  {id:'won',        label:'Won'},
+];
+const DOC_TYPES=['Brief','Deck','Report','Proposal','Other'];
+const AV_COLORS=['av-g','av-b','av-a','av-p','av-r','av-k','av-t','av-o','av-c'];
+let nid=50;
+let tasks=[
+  {id:1, name:'DOOH creative final approval',        acct:'dreamfolks', who:'karan',   stage:'review',    pri:'high',  start:'2026-04-28',due:'2026-05-03',cmts:[{u:'adi',t:'Adonmo needs resolution specs',ts:'10:30am'}],by:'karan'},
+  {id:2, name:'IPL KwikPredict contest copy',        acct:'mobikwik',   who:'abhijna', stage:'inprogress',pri:'high',  start:'2026-04-30',due:'2026-05-02',cmts:[],by:'keerthi'},
+  {id:3, name:'Performance brief sign-off',          acct:'gocolors',   who:'karan',   stage:'planning',  pri:'high',  start:'2026-05-01',due:'2026-05-05',cmts:[],by:'karan'},
+  {id:4, name:'May content calendar',               acct:'laundrymate',who:'abhijna', stage:'backlog',   pri:'normal',start:'2026-05-02',due:'2026-05-07',cmts:[],by:'keerthi'},
+  {id:5, name:'Influencer deck revision v2',         acct:'magniflex',  who:'adi',     stage:'inprogress',pri:'normal',start:'2026-05-01',due:'2026-05-06',cmts:[],by:'keerthi'},
+  {id:6, name:'ZaakFlow LinkedIn post series',       acct:'zaakpay',    who:'abhijna', stage:'approved',  pri:'normal',start:'2026-04-25',due:'2026-04-30',cmts:[],by:'karan'},
+  {id:7, name:'Social strategy deck review',         acct:'inmobi',     who:'adi',     stage:'review',    pri:'normal',start:'2026-05-01',due:'2026-05-07',cmts:[],by:'adi'},
+  {id:8, name:'Retainer proposal v5',               acct:'tara',       who:'karan',   stage:'planning',  pri:'high',  start:'2026-05-02',due:'2026-05-08',cmts:[],by:'karan'},
+  {id:9, name:'March social report deck',           acct:'mobikwik',   who:'monish',  stage:'approved',  pri:'normal',start:'2026-04-27',due:'2026-04-29',cmts:[],by:'keerthi'},
+  {id:10,name:'Bikaji May content calendar',         acct:'bikaji',     who:'nisha',   stage:'backlog',   pri:'normal',start:'2026-05-02',due:'2026-05-08',cmts:[],by:'keerthi'},
+  {id:11,name:'Kickoff call prep deck',              acct:'gocolors',   who:'keerthi', stage:'inprogress',pri:'high',  start:'2026-04-30',due:'2026-05-03',cmts:[],by:'karan'},
+  {id:12,name:'Brand film script review',            acct:'dreamfolks', who:'adi',     stage:'planning',  pri:'normal',start:'2026-05-01',due:'2026-05-04',cmts:[],by:'karan'},
+  {id:13,name:'Anchor video topic brief',            acct:'mobikwik',   who:'abhijna', stage:'backlog',   pri:'normal',start:'2026-05-03',due:'2026-05-09',cmts:[],by:'keerthi'},
+  {id:14,name:'Instagram reel scripts (4)',          acct:'tara',       who:'abhijna', stage:'backlog',   pri:'normal',start:'2026-05-05',due:'2026-05-10',cmts:[],by:'adi'},
+  {id:15,name:'Bikaji Q1 performance report',        acct:'bikaji',     who:'nisha',   stage:'planning',  pri:'normal',start:'2026-05-03',due:'2026-05-09',cmts:[],by:'keerthi'},
+];
+let pitches=[
+  {id:'p1',name:'BCG India',            contact:'Head of Marketing',stage:'pitched',   val:'₹8L/mo',who:'karan',  docs:[{name:'BCG Credentials Deck',type:'Deck',added:'Apr 28',url:''},{name:'Agency Overview',type:'Brief',added:'Apr 25',url:''}]},
+  {id:'p2',name:'Fireside Ventures',    contact:'Warm intro',       stage:'followup',  val:'₹5L/mo',who:'keerthi',docs:[{name:'Fireside Portfolio Brief',type:'Brief',added:'Apr 29',url:''}]},
+  {id:'p3',name:'MRG / Goldfinch Hotels',contact:'In-person met',  stage:'followup',  val:'₹4L/mo',who:'karan',  docs:[{name:'MRG Pitch Deck v3',type:'Deck',added:'Apr 20',url:''},{name:'Hotel Social Report Sample',type:'Report',added:'Apr 22',url:''}]},
+  {id:'p4',name:'Nykaa',               contact:'CMO — Referral',   stage:'prospecting',val:'₹10L/mo',who:'karan', docs:[]},
+  {id:'p5',name:'boAt Lifestyle',       contact:'Warm connect',     stage:'pitched',   val:'₹6L/mo',who:'keerthi',docs:[{name:'boAt Performance Proposal',type:'Proposal',added:'Apr 30',url:''}]},
+  {id:'p6',name:'Mamaearth',           contact:'Cold outreach',     stage:'prospecting',val:'₹4L/mo',who:'keerthi',docs:[]},
+];
+let ops=[
+  {id:'o1',name:'SOP review — Digital Team Operations',  who:'karan',   stage:'inprogress',start:'2026-04-20',due:'2026-05-10',pct:60},
+  {id:'o2',name:'BD training program — new hire',        who:'keerthi', stage:'backlog',   start:'2026-05-05',due:'2026-05-20',pct:0},
+  {id:'o3',name:'Hire: Senior Performance Marketer',     who:'satya',   stage:'inprogress',start:'2026-04-25',due:'2026-05-15',pct:40},
+  {id:'o4',name:'Update Netlify Creative Repository',    who:'adi',     stage:'backlog',   start:'2026-05-05',due:'2026-05-12',pct:0},
+  {id:'o5',name:'Q2 appraisal cycle kick-off',           who:'satya',   stage:'backlog',   start:'2026-05-12',due:'2026-05-25',pct:0},
+  {id:'o6',name:'WireFlow Firebase deployment',          who:'karan',   stage:'planning',  start:'2026-05-05',due:'2026-05-08',pct:20},
+];
+let actLog=[
+  {u:'abhijna',txt:'Moved "ZaakFlow LinkedIn post series" → Approved',tag:'task',time:'Today, 9:42am'},
+  {u:'keerthi',txt:'Go Colors kickoff call confirmed — May 3, 11am IST',tag:'announce',time:'Today, 9:10am'},
+  {u:'monish', txt:'MobiKwik March social report deck sent to client',tag:'task',time:'Yesterday, 5:30pm'},
+  {u:'adi',    txt:'Uploaded Magniflex influencer brief v2 to pitch docs',tag:'doc',time:'Yesterday, 3:15pm'},
+  {u:'karan',  txt:'DreamFolks campaign goes live May 5 — all hands on deliverables',tag:'announce',time:'Yesterday, 11:00am'},
+  {u:'isaac',  txt:'Completed DOOH static banners for DreamFolks (4 sizes)',tag:'task',time:'Apr 30, 4:00pm'},
+  {u:'keerthi',txt:'MRG Hotels proposal deck v3 sent for review',tag:'doc',time:'Apr 30, 2:00pm'},
+  {u:'karan',  txt:'BCG India pitch confirmed for May 6',tag:'pitch',time:'Apr 29, 6:00pm'},
+];
+let chatMsgs={};
+let unread={};
+TEAM.forEach(m=>{if(m.id!=='karan'){chatMsgs[m.id]=[];unread[m.id]=0;}});
+chatMsgs['keerthi']=[
+  {from:'keerthi',txt:'Hey, Go Colors brief ready for review before the call tomorrow?',ts:'9:10am'},
+  {from:'karan',  txt:'Will check by EOD. Is Vatsal confirmed?',ts:'9:12am'},
+  {from:'keerthi',txt:'Yes confirmed — 11am May 3',ts:'9:13am'},
+];
+chatMsgs['adi']=[
+  {from:'adi',txt:'Magniflex deck v2 is done — needs your sign-off',ts:'Yesterday'},
+  {from:'karan',txt:'Send it over, checking tonight',ts:'Yesterday'},
+];
+chatMsgs['abhijna']=[
+  {from:'abhijna',txt:'KwikPredict copy almost done, sending for review',ts:'10:00am'},
+];
+unread['keerthi']=1; unread['adi']=1;
+
+let acctNotes={};
+let cu=TEAM[0];
+let cv='dashboard';
+let chatWith='keerthi';
+
+/* ══════ HELPERS ══════ */
+const gT=id=>TEAM.find(m=>m.id===id)||{name:id,ini:id.slice(0,2).toUpperCase(),color:'av-g',lead:false,admin:false};
+const gA=id=>ACCTS.find(a=>a.id===id)||{name:id,emoji:'📋',color:'av-g'};
+const av=(m,cls='')=>`<div class="av ${m.color} ${cls}">${m.ini}</div>`;
+const today=()=>new Date().toISOString().slice(0,10);
+const isOverdue=(due)=>due&&due<today()&&true;
+function sbadge(s){const map={backlog:'Backlog',planning:'Planning',inprogress:'In Progress',review:'Review',approved:'Approved',rejected:'Rejected'};return`<span class="badge b-${s}">${map[s]||s}</span>`;}
+function pbadge(s){const map={prospecting:'Prospecting',pitched:'Pitched',followup:'Follow-up',won:'Won',lost:'Lost'};return`<span class="badge b-${s}">${map[s]||s}</span>`;}
+function canEdit(t){if(cu.admin)return true;if(t.by===cu.id||t.who===cu.id)return true;if(cu.lead){const a=gA(t.acct);if(a.lead===cu.id)return true;}return false;}
+function totalUnread(){return Object.values(unread).reduce((a,b)=>a+b,0);}
+function updUnread(){const n=totalUnread();const b=document.getElementById('ubadge');if(b){b.textContent=n;b.style.display=n?'':'none';}}
+function logAct(txt,tag){actLog.unshift({u:cu.id,txt,tag,time:'Just now'});}
+function fmtDate(d){if(!d)return'—';const[y,m,day]=d.split('-');const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return`${mos[+m-1]} ${+day}`;}
+
+/* ══════ SIDEBAR ACCOUNTS ══════ */
+function buildAcctNav(){
+  document.getElementById('acct-nav').innerHTML=ACCTS.map(a=>
+    `<div class="ni" data-v="acct-${a.id}" onclick="goNav(this,'acct-${a.id}')"><span style="font-size:13px;">${a.emoji}</span> ${a.name}</div>`
+  ).join('')+(cu&&cu.admin?'<div class="ni" onclick="openCreateSpace()" style="border:1px dashed var(--bdr2);color:var(--tx3);margin-top:4px;justify-content:center;font-size:12px;">＋ Add account</div>':'');
+}
+
+/* ══════ NAV ══════ */
+function goNav(el,view){
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  cv=view;
+  const titles={dashboard:'Dashboard',pitches:'Pitches',ops:'Internal ops',feed:'Activity log',chat:'Chat',people:'People'};
+  if(view.startsWith('acct-')){
+    const id=view.replace('acct-','');
+    const a=gA(id);
+    document.getElementById('ptitle').textContent=a.emoji+' '+a.name;
+  } else {
+    document.getElementById('ptitle').textContent=titles[view]||view;
+  }
+  document.getElementById('tbar-actions').innerHTML='';
+  renderView(view);
+}
+function renderView(v){
+  const c=document.getElementById('content');
+  const ta=document.getElementById('tbar-actions');
+  ta.innerHTML='';
+  if(v==='dashboard') renderDash(c);
+  else if(v.startsWith('acct-')) renderAcct(v.replace('acct-',''),c,ta);
+  else if(v==='pitches') renderPitches(c,ta);
+  else if(v==='ops') renderOps(c,ta);
+  else if(v==='feed') renderFeed(c);
+  else if(v==='chat') renderChat(c);
+  else if(v==='people') renderPeople(c,ta);
+  else if(v==='leaderboard') renderLeaderboard(c,ta);
+  updUnread();
+}
+
+/* ══════ DASHBOARD ══════ */
+function renderDash(c){
+  // Add export to topbar
+  document.getElementById('tbar-actions').innerHTML=`<button class="btn btn-xs" onclick="exportAllExcel()">⬇ Export all</button>`;
+  const myTasks=tasks.filter(t=>t.who===cu.id&&t.stage!=='approved');
+  const overdue=tasks.filter(t=>t.stage!=='approved'&&isOverdue(t.due));
+  const reviewQ=tasks.filter(t=>t.stage==='review');
+  const allOpen=tasks.filter(t=>t.stage!=='approved');
+  const ap=pitches.filter(p=>p.stage!=='won'&&p.stage!=='lost');
+  c.innerHTML=`<div class="dash-wrap">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-lbl">My open tasks</div><div class="stat-val">${myTasks.length}</div><div class="stat-sub">assigned to me</div></div>
+      <div class="stat-card"><div class="stat-lbl">Overdue</div><div class="stat-val" style="color:${overdue.length?'var(--red)':'inherit'}">${overdue.length}</div><div class="stat-sub">need attention</div></div>
+      <div class="stat-card"><div class="stat-lbl">In review</div><div class="stat-val">${reviewQ.length}</div><div class="stat-sub">awaiting approval</div></div>
+      <div class="stat-card"><div class="stat-lbl">Active pitches</div><div class="stat-val">${ap.length}</div><div class="stat-sub">in pipeline</div></div>
+    </div>
+    <div class="dash-cols">
+      <div>
+        <div class="section-title">My tasks — action needed</div>
+        <div class="panel" style="margin-bottom:14px;">
+          ${myTasks.length?myTasks.map(t=>taskRow(t)).join(''):'<div class="empty">All clear — nothing assigned to you.</div>'}
+        </div>
+        ${overdue.length?`<div class="section-title" style="color:var(--red);">⚠ Overdue (${overdue.length})</div>
+        <div class="panel">
+          ${overdue.map(t=>taskRow(t,true)).join('')}
+        </div>`:''}
+      </div>
+      <div>
+        <div class="section-title">Awaiting review</div>
+        <div class="panel" style="margin-bottom:14px;">
+          ${reviewQ.length?reviewQ.map(t=>taskRow(t)).join(''):'<div class="empty">Nothing in review.</div>'}
+        </div>
+        <div class="section-title">Hot pitches</div>
+        <div class="panel">
+          ${ap.slice(0,4).map(p=>{const m=gT(p.who);return`<div class="ai-row" onclick="openPitchDr(${JSON.stringify(p.id).replace(/"/g,"'")})">
+            <div style="flex:1"><div style="font-size:13px;font-weight:500;">${p.name}</div><div style="font-size:11px;color:var(--tx3);">${p.val}</div></div>
+            ${pbadge(p.stage)}${av(m,'av-sm')}</div>`;}).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Recent activity</div>
+        <div class="panel">
+          ${actLog.slice(0,5).map(f=>{const m=gT(f.u);return`<div class="ai-row" style="cursor:default;align-items:flex-start;gap:8px;">
+            ${av(m,'av-sm')}
+            <div style="flex:1"><div style="font-size:12px;line-height:1.4;">${f.txt}</div><div style="font-size:10px;color:var(--tx3);margin-top:2px;">${f.time}</div></div>
+          </div>`;}).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function taskRow(t,showOverdue=false){
+  const m=gT(t.who);const a=gA(t.acct);
+  return`<div class="ai-row" onclick="openTaskDr(${t.id})">
+    ${showOverdue?'<div class="overdue-dot"></div>':''}
+    <div style="flex:1;min-width:0;">
+      <div class="ai-name">${t.name}</div>
+      <div class="ai-meta">${a.emoji} ${a.name} · Due ${fmtDate(t.due)}</div>
+    </div>
+    ${t.pri==='high'?'<span class="badge b-high" style="font-size:10px;">High</span>':''}
+    ${sbadge(t.stage)}
+    ${av(m,'av-sm')}
+  </div>`;
+}
+
+/* ══════ ACCOUNT BOARD ══════ */
+function renderAcct(id,c,ta){
+  ta.innerHTML=`
+    <button class="btn btn-xs" onclick="openManageStages('${id}')">⚙ Stages</button>
+    ${cu.admin?`<button class="btn btn-xs" onclick="openEditSpace('${id}')">Edit space</button>`:''}
+    <button class="btn btn-xs" onclick="exportAccountExcel('${id}')">⬇ Export</button>
+    <button class="btn btn-xs btn-grn" onclick="openNewTaskDr('${id}')">+ Add task</button>`;
+  c.innerHTML=`
+    <div class="tabs" id="acct-tabs">
+      <div class="tab active" onclick="switchAcctTab(this,'board','${id}')">Board</div>
+      <div class="tab" onclick="switchAcctTab(this,'overview','${id}')">Overview</div>
+    </div>
+    <div id="acct-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;"></div>`;
+  showAcctBoard(id);
+}
+function switchAcctTab(el,tab,id){
+  document.querySelectorAll('#acct-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(tab==='board')showAcctBoard(id);
+  else showAcctOverview(id);
+}
+function showAcctBoard(id){
+  const acctTasks=tasks.filter(t=>t.acct===id);
+  document.getElementById('acct-body').innerHTML=`
+    <div style="display:flex;flex:1;overflow:hidden;min-height:0;">
+      <div class="kanban-wrap">
+        ${getStages(id).map(s=>{const cards=acctTasks.filter(t=>t.stage===s.id);
+          return`<div class="k-col">
+            <div class="k-col-head"><div class="k-col-title">${s.label}</div><div class="k-count">${cards.length}</div></div>
+            <div class="k-cards">${cards.map(t=>{const m=gT(t.who);const late=isOverdue(t.due);
+              return`<div class="k-card" onclick="openTaskDr(${t.id})">
+                <div class="k-card-name">${t.name}</div>
+                <div class="k-card-foot">
+                  <div class="k-due ${late?'late':''}">${t.due?fmtDate(t.due):''}</div>
+                  ${t.pri==='high'?'<span class="badge b-high" style="font-size:9px;padding:1px 5px;">!</span>':''}
+                  ${av(m,'av-sm')}
+                </div></div>`;}).join('')}</div>
+            <div class="k-add"><button class="k-add-btn" onclick="openNewTaskDr('${id}','${s.id}')">+ Add task</button></div>
+          </div>`;}).join('')}
+      </div>
+    </div>`;
+}
+function showAcctOverview(id){
+  const a=gA(id);const lead=gT(a.lead);
+  const acctTasks=tasks.filter(t=>t.acct===id);
+  const open=acctTasks.filter(t=>t.stage!=='approved');
+  const uids=[...new Set(acctTasks.map(t=>t.who))];
+  document.getElementById('acct-body').innerHTML=`
+    <div style="overflow-y:auto;padding:18px;flex:1;">
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:14px;">
+        <div>
+          <div class="panel" style="margin-bottom:14px;">
+            <div class="ph"><div class="ph-title">All tasks</div>${open.length?`<span class="badge b-inprogress">${open.length} open</span>`:''}</div>
+            ${acctTasks.length?acctTasks.map(t=>{const m=gT(t.who);
+              return`<div class="ai-row" onclick="openTaskDr(${t.id})">
+                <div style="flex:1;min-width:0;"><div style="font-size:13px;">${t.name}</div><div style="font-size:11px;color:var(--tx3);">Due ${fmtDate(t.due)}</div></div>
+                ${sbadge(t.stage)}${av(m,'av-sm')}</div>`;}).join(''):'<div class="empty">No tasks yet.</div>'}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="panel">
+            <div class="ph"><div class="ph-title">Account info</div></div>
+            <div style="padding:12px 14px;">
+              <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Type</div>
+              <div style="font-size:13px;margin-bottom:10px;">${a.type}</div>
+              <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Account lead</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;">${av(lead,'av-sm')} ${lead.name}</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">Team on this account</div></div>
+            ${uids.map(uid=>{const m=gT(uid);const cnt=acctTasks.filter(t=>t.who===uid&&t.stage!=='approved').length;
+              return`<div class="ai-row" style="cursor:default;">${av(m,'av-sm')}<div style="flex:1;font-size:13px;">${m.name}</div><div style="font-size:11px;color:var(--tx3);">${cnt} open</div></div>`;}).join('')}
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">Notes</div></div>
+            <div style="padding:10px 12px;">
+              <textarea class="fi" placeholder="Briefs, links, context…" style="min-height:90px;" onchange="acctNotes['${id}']=this.value">${acctNotes[id]||''}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ══════ PITCHES ══════ */
+function renderPitches(c,ta){
+  ta.innerHTML=`<button class="btn btn-xs btn-grn" onclick="openNewPitchDr()">+ Add pitch</button>`;
+  c.innerHTML=`
+    <div class="tabs" id="pitch-tabs">
+      <div class="tab active" onclick="switchPitchTab(this,'kanban')">Pipeline</div>
+      <div class="tab" onclick="switchPitchTab(this,'docs')">All docs</div>
+    </div>
+    <div id="pitch-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;"></div>`;
+  showPitchKanban();
+}
+function switchPitchTab(el,tab){
+  document.querySelectorAll('#pitch-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(tab==='kanban')showPitchKanban();
+  else showAllDocs();
+}
+function showPitchKanban(){
+  document.getElementById('pitch-body').innerHTML=`
+    <div style="flex:1;display:flex;overflow:hidden;">
+      <div class="kanban-wrap">
+        ${P_STAGES.map(s=>{const cards=pitches.filter(p=>p.stage===s.id);
+          return`<div class="k-col">
+            <div class="k-col-head"><div class="k-col-title">${s.label}</div><div class="k-count">${cards.length}</div></div>
+            <div class="k-cards">${cards.map(p=>{const m=gT(p.who);
+              return`<div class="k-card" onclick="openPitchDr('${p.id}')">
+                <div class="k-card-name">${p.name}</div>
+                <div style="font-size:11px;color:var(--tx3);margin-bottom:7px;">${p.val} · ${p.docs.length} doc${p.docs.length!==1?'s':''}</div>
+                <div class="k-card-foot"><div class="k-due">${p.contact}</div>${av(m,'av-sm')}</div>
+              </div>`;}).join('')}</div>
+            <div class="k-add"><button class="k-add-btn" onclick="openNewPitchDr('${s.id}')">+ Add pitch</button></div>
+          </div>`;}).join('')}
+      </div>
+    </div>`;
+}
+function showAllDocs(){
+  const allDocs=[];
+  pitches.forEach(p=>p.docs.forEach(d=>allDocs.push({...d,pitch:p.name,pitchId:p.id})));
+  const typeIcon={Brief:'📄',Deck:'📊',Report:'📈',Proposal:'📋',Other:'📎'};
+  const typeCls={Brief:'dt-brief',Deck:'dt-deck',Report:'dt-report',Proposal:'dt-proposal',Other:'dt-other'};
+  document.getElementById('pitch-body').innerHTML=`
+    <div class="docs-wrap">
+      ${allDocs.length?`<div class="panel">
+        ${allDocs.map(d=>`<div class="doc-row">
+          <div class="doc-icon" style="background:var(--surf2);">${typeIcon[d.type]||'📎'}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="doc-name">${d.name}</div>
+            <div class="doc-meta">${d.pitch} · Added ${d.added}</div>
+          </div>
+          <span class="doc-type-badge ${typeCls[d.type]||'dt-other'}">${d.type}</span>
+          ${d.url?`<a href="${d.url}" target="_blank" class="btn btn-xs">Open</a>`:'<span style="font-size:11px;color:var(--tx3);">No link</span>'}
+        </div>`).join('')}
+      </div>`:'<div class="empty">No docs uploaded yet. Open a pitch and add docs.</div>'}
+    </div>`;
+}
+
+/* ══════ OPS ══════ */
+function renderOps(c,ta){
+  ta.innerHTML=`<button class="btn btn-xs btn-grn" onclick="openNewOpsDr()">+ Add task</button>`;
+  c.innerHTML=`<div class="ops-wrap"><div class="panel">${ops.map(o=>{
+    const m=gT(o.who);
+    return`<div class="ops-row" onclick="openOpsDr('${o.id}')">
+      <div style="flex:1;min-width:0;">
+        <div class="ops-name">${o.name}</div>
+        <div class="ops-dates">${fmtDate(o.start)} → ${fmtDate(o.due)}</div>
+      </div>
+      <div class="progress-wrap" style="text-align:right;">
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:2px;">${o.pct}%</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${o.pct}%"></div></div>
+      </div>
+      ${sbadge(o.stage)}
+      ${av(m,'av-sm')}
+    </div>`;}).join('')}</div></div>`;
+}
+
+/* ══════ FEED / ACTIVITY LOG ══════ */
+function renderFeed(c){
+  const tagCls={task:'ft-task',pitch:'ft-pitch',announce:'ft-announce',doc:'ft-doc'};
+  const tagLbl={task:'Task',pitch:'Pitch',announce:'Announce',doc:'Doc'};
+  c.innerHTML=`<div style="max-width:660px;margin:0 auto;display:flex;flex-direction:column;height:100%;">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--bdr);background:var(--surf);display:flex;gap:8px;flex-shrink:0;">
+      <textarea class="fi" id="feed-txt" placeholder="Post an announcement (e.g. 'DreamFolks campaign live on May 5')…" style="min-height:44px;resize:none;flex:1;"></textarea>
+      <button class="btn btn-dark btn-xs" onclick="postAnnounce()">Post</button>
+    </div>
+    <div class="feed-wrap">
+      ${actLog.map(f=>{const m=gT(f.u);return`<div class="feed-item">
+        ${av(m,'av-sm')}
+        <div class="feed-body">
+          <div class="feed-top">
+            <span class="feed-who">${m.name}</span>
+            <span class="feed-tag ${tagCls[f.tag]||'ft-task'}">${tagLbl[f.tag]||f.tag}</span>
+            <span class="feed-time">${f.time}</span>
+          </div>
+          <div class="feed-text">${f.txt}</div>
+        </div>
+      </div>`;}).join('')}
+    </div>
+  </div>`;
+}
+function postAnnounce(){
+  const t=document.getElementById('feed-txt')?.value?.trim();
+  if(!t)return;
+  logAct(t,'announce');
+  renderView('feed');
+}
+
+/* ══════ CHAT ══════ */
+function renderChat(c){
+  const others=TEAM.filter(m=>m.id!==cu.id);
+  c.innerHTML=`<div class="chat-layout">
+    <div class="chat-sb">
+      <div class="chat-sb-head">Direct messages</div>
+      <div class="chat-dm-list" id="dm-list">
+        ${others.map(m=>{const msgs=chatMsgs[m.id]||[];const last=msgs[msgs.length-1];const u=unread[m.id]||0;
+          return`<div class="cdm ${chatWith===m.id?'active':''}" id="dm-${m.id}" onclick="openChat('${m.id}')">
+            <div class="av-wrap">${av(m)}<div class="online"></div></div>
+            <div class="cdm-info">
+              <div class="cdm-name">${m.name}</div>
+              ${last?`<div class="cdm-preview">${last.txt}</div>`:'<div class="cdm-preview" style="font-style:italic;">Start a conversation</div>'}
+            </div>
+            ${u?`<div class="cdm-badge">${u}</div>`:''}
+          </div>`;}).join('')}
+      </div>
+    </div>
+    <div class="chat-main" id="chat-main">${buildChatMain(chatWith)}</div>
+  </div>`;
+  scrollChat();
+}
+function buildChatMain(uid){
+  const m=gT(uid);
+  const msgs=chatMsgs[uid]||[];
+  return`<div class="chat-topbar">
+    <div class="av-wrap">${av(m,'av-lg')}<div class="online"></div></div>
+    <div><div style="font-size:14px;font-weight:600;">${m.name}</div><div style="font-size:11px;color:var(--tx3);">${m.role} · Online</div></div>
+  </div>
+  <div class="chat-msgs" id="chat-msgs">
+    ${msgs.length?msgs.map(msg=>{const isMe=msg.from===cu.id;
+      return`<div class="msg ${isMe?'me':''}">
+        ${!isMe?av(gT(msg.from),'av-sm'):''}
+        <div class="msg-body">
+          <div class="msg-meta">${!isMe?gT(msg.from).name+' · ':''} ${msg.ts}</div>
+          <div class="msg-bubble ${isMe?'mine':'their'}">${msg.txt}</div>
+        </div>
+      </div>`;}).join(''):`<div class="empty" style="margin:auto;">Start a conversation with ${m.name}</div>`}
+  </div>
+  <div class="chat-input-wrap">
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="ci-${uid}" placeholder="Message ${m.name}…" rows="1" onkeydown="chatKey(event,'${uid}')"></textarea>
+      <button class="btn btn-dark btn-xs" onclick="sendMsg('${uid}')">Send</button>
+    </div>
+    <div style="font-size:10px;color:var(--tx3);margin-top:6px;" id="chat-status-bar">Messages sync via Firebase · Enter to send · Shift+Enter for new line</div>
+  </div>`;
+}
+function openChat(uid){
+  chatWith=uid;unread[uid]=0;updUnread();
+  document.querySelectorAll('.cdm').forEach(d=>d.classList.remove('active'));
+  document.getElementById('dm-'+uid)?.classList.add('active');
+  document.getElementById('chat-main').innerHTML=buildChatMain(uid);
+  scrollChat();
+  // Update unread badge in DM list
+  const badge=document.querySelector(`#dm-${uid} .cdm-badge`);
+  if(badge)badge.remove();
+}
+function sendMsg(uid){
+  const inp=document.getElementById('ci-'+uid);if(!inp)return;
+  const txt=inp.value.trim();if(!txt)return;
+  const ts=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const msg={from:cu.id,txt,ts};
+  if(!chatMsgs[uid])chatMsgs[uid]=[];
+  chatMsgs[uid].push(msg);
+  inp.value='';
+  // Always save to localStorage
+  try{localStorage.setItem('wf_chat_'+uid,JSON.stringify(chatMsgs[uid]));}catch(e){}
+  // Write to Firebase — key is sorted pair so both users see same thread
+  if(fbOk&&db){
+    const key=[cu.id,uid].sort().join('__');
+    db.ref('wireflow_chat/'+key).push({...msg,users:[cu.id,uid]}).catch(e=>console.warn('FB write failed',e));
+  }
+  document.getElementById('chat-main').innerHTML=buildChatMain(uid);
+  scrollChat();
+}
+function chatKey(e,uid){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg(uid);}}
+function scrollChat(){const el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;}
+// Load chat from localStorage first, then sync from Firebase
+function loadChatFromStorage(){
+  TEAM.forEach(m=>{
+    if(m.id!==cu.id){
+      try{
+        const s=localStorage.getItem('wf_chat_'+m.id);
+        if(s){const saved=JSON.parse(s);if(saved.length>(chatMsgs[m.id]||[]).length)chatMsgs[m.id]=saved;}
+      }catch(e){}
+    }
+  });
+}
+function syncChatFromFirebase(){
+  if(!fbOk||!db)return;
+  TEAM.forEach(m=>{
+    if(m.id===cu.id)return;
+    const key=[cu.id,m.id].sort().join('__');
+    db.ref('wireflow_chat/'+key).orderByKey().limitToLast(100).once('value').then(snap=>{
+      if(!snap.exists())return;
+      const msgs=[];
+      snap.forEach(child=>{const v=child.val();if(v&&v.txt)msgs.push({from:v.from,txt:v.txt,ts:v.ts||'—'});});
+      if(msgs.length>(chatMsgs[m.id]||[]).length){
+        chatMsgs[m.id]=msgs;
+        try{localStorage.setItem('wf_chat_'+m.id,JSON.stringify(msgs));}catch(e){}
+        // Refresh chat UI if open
+        if(cv==='chat'&&chatWith===m.id){
+          document.getElementById('chat-main').innerHTML=buildChatMain(m.id);
+          scrollChat();
+        }
+      }
+    }).catch(()=>{});
+    // Also listen for new messages in real-time
+    db.ref('wireflow_chat/'+key).limitToLast(1).on('child_added', snap=>{
+      const v=snap.val();
+      if(!v||v.from===cu.id)return; // skip own messages
+      if(!chatMsgs[m.id])chatMsgs[m.id]=[];
+      // Avoid duplicates
+      const last=chatMsgs[m.id][chatMsgs[m.id].length-1];
+      if(last&&last.txt===v.txt&&last.from===v.from)return;
+      chatMsgs[m.id].push({from:v.from,txt:v.txt,ts:v.ts||'now'});
+      unread[m.id]=(unread[m.id]||0)+1;
+      updUnread();
+      try{localStorage.setItem('wf_chat_'+m.id,JSON.stringify(chatMsgs[m.id]));}catch(e){}
+      if(cv==='chat'&&chatWith===m.id){
+        unread[m.id]=0;updUnread();
+        document.getElementById('chat-main').innerHTML=buildChatMain(m.id);
+        scrollChat();
+      }
+    });
+  });
+}
+
+/* ══════ PEOPLE ══════ */
+function renderPeople(c,ta){
+  // Everyone can see; only admin can add/edit/remove
+  ta.innerHTML=`<button class="btn btn-xs btn-grn" onclick="openAddPersonDr()">+ Add person</button>${cu.admin?'':' <span style="font-size:11px;color:var(--tx3);">(view only — ask Karan to add)</span>'}`;
+  const counts={};tasks.forEach(t=>{if(t.stage!=='approved')counts[t.who]=(counts[t.who]||0)+1;});
+  c.innerHTML=`<div class="people-wrap">
+    <div class="people-grid">
+      ${TEAM.map(m=>`<div class="p-card">
+        ${cu.admin?`<button class="btn btn-xs edit-btn" onclick="event.stopPropagation();openEditPersonDr('${m.id}')">Edit</button>`:''}
+        ${av(m,'av-xl')}
+        <div class="p-name">${m.name}</div>
+        <div class="p-role">${m.role}</div>
+        <div class="p-tasks"><strong>${counts[m.id]||0}</strong> open tasks</div>
+        ${m.lead?`<div style="margin-top:6px;"><span class="badge b-done" style="font-size:10px;">Lead</span></div>`:''}
+      </div>`).join('')}
+      ${cu.admin?`<div class="add-person-card" onclick="openAddPersonDr()">
+        <div style="font-size:24px;margin-bottom:6px;">+</div>
+        <div style="font-size:13px;color:var(--tx3);">Add person</div>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ══════ TASK DETAIL PANEL ══════ */
+// Ensure tasks have extra fields
+function ensureTaskFields(t){
+  if(!t.desc)t.desc='';
+  if(!t.subtasks)t.subtasks=[];
+  if(!t.checklists)t.checklists=[];
+  if(!t.attachments)t.attachments=[];
+  if(!t.taskLog)t.taskLog=[{u:t.by||'karan',txt:'Created this task',ts:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}];
+  return t;
+}
+function openTaskDr(id){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));if(!t)return;
+  const e=canEdit(t);const a=gA(t.acct);
+  // Build or show overlay
+  let ov=document.getElementById('task-ov');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='task-ov';ov.className='task-overlay';
+    ov.innerHTML=`<div class="task-panel" id="task-panel" onclick="event.stopPropagation()"></div>`;
+    ov.onclick=function(e){if(e.target===ov)closeTaskPanel();};
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  const stageOpts=STAGES.map(s=>`<option value="${s.id}" ${t.stage===s.id?'selected':''}>${s.label}</option>`).join('');
+  const memberOpts=TEAM.map(m=>`<option value="${m.id}" ${t.who===m.id?'selected':''}>${m.name}</option>`).join('');
+  const prioOpts=`<option value="normal" ${t.pri==='normal'?'selected':''}>Normal</option><option value="high" ${t.pri==='high'?'selected':''}>High</option>`;
+  document.getElementById('task-panel').innerHTML=`
+    <div class="task-panel-head">
+      <span style="font-size:11px;color:var(--tx3);">${a.emoji} ${a.name}</span>
+      <span style="font-size:11px;color:var(--tx3);margin-left:4px;">/ Task</span>
+      <div style="flex:1;"></div>
+      ${e?`<button class="btn btn-xs btn-red" onclick="deleteTask(${id})">Delete</button>`:''}
+      <button class="btn btn-xs" onclick="closeTaskPanel()">✕ Close</button>
+    </div>
+    <div style="display:flex;flex:1;overflow:hidden;min-height:0;">
+      <div class="task-panel-main">
+        <textarea class="task-title-input" id="tt-${id}" rows="2" ${e?'':'readonly'}>${t.name}</textarea>
+        <div style="background:var(--surf2);border-radius:var(--r);padding:4px 8px;margin-bottom:16px;">
+          <div class="task-field-row">
+            <div class="tfl">📋 Status</div>
+            <div class="tfv">${e?`<select onchange="tasks.find(x=>x.id===${id}).stage=this.value;onStageChange(${id},this.value);logAct('Moved to '+this.options[this.selectedIndex].text,'task');refreshTaskActivity(${id})">${stageOpts}</select>`:sbadge(t.stage)}</div>
+          </div>
+          <div class="task-field-row">
+            <div class="tfl">👤 Assignee</div>
+            <div class="tfv">${e?`<select onchange="tasks.find(x=>x.id===${id}).who=this.value">${memberOpts}</select>`:`${gT(t.who).name}`}</div>
+          </div>
+          <div class="task-field-row">
+            <div class="tfl">🚩 Priority</div>
+            <div class="tfv">${e?`<select onchange="tasks.find(x=>x.id===${id}).pri=this.value">${prioOpts}</select>`:t.pri}</div>
+          </div>
+          <div class="task-field-row">
+            <div class="tfl">📅 Start date</div>
+            <div class="tfv">${e?`<input type="date" value="${t.start||''}" onchange="tasks.find(x=>x.id===${id}).start=this.value">`:`${fmtDate(t.start)}`}</div>
+          </div>
+          <div class="task-field-row">
+            <div class="tfl">⏰ Due date</div>
+            <div class="tfv" style="color:${t.due&&t.due<today()?'var(--red)':'inherit'}">${e?`<input type="date" value="${t.due||''}" onchange="tasks.find(x=>x.id===${id}).due=this.value">`:`${fmtDate(t.due)}`}</div>
+          </div>
+        </div>
+
+        <div class="task-section">
+          <div class="task-section-title">📝 Description</div>
+          <textarea class="desc-area" id="desc-${id}" placeholder="Add a description, context or links…" ${e?'':'readonly'} onchange="tasks.find(x=>x.id===${id}).desc=this.value">${t.desc}</textarea>
+        </div>
+
+        <div class="task-section">
+          <div class="task-section-title">✅ Subtasks <span style="font-size:11px;font-weight:400;color:var(--tx3);">${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} done</span></div>
+          <div id="subtasks-${id}">
+            ${t.subtasks.map((s,i)=>`<div class="subtask-row">
+              <div class="check ${s.done?'done':''}" onclick="toggleSubtask(${id},${i})">${s.done?'✓':''}</div>
+              <input class="subtask-text ${s.done?'done-txt':''}" value="${s.text}" ${e?'':'readonly'} onchange="tasks.find(x=>x.id===${id}).subtasks[${i}].text=this.value">
+              ${e?`<button class="del-btn" onclick="delSubtask(${id},${i})">✕</button>`:''}
+            </div>`).join('')}
+          </div>
+          ${e?`<button class="add-row-btn" onclick="addSubtask(${id})">＋ Add subtask</button>`:''}
+        </div>
+
+        <div class="task-section">
+          <div class="task-section-title">☑️ Checklist</div>
+          ${t.checklists.map((cl,ci)=>`<div style="margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              ${cl.name}
+              <span style="font-size:10px;color:var(--tx3);">${cl.items.filter(i=>i.done).length}/${cl.items.length}</span>
+              ${e?`<button class="del-btn" style="opacity:1;" onclick="delChecklist(${id},${ci})">✕</button>`:''}
+            </div>
+            <div id="cl-${id}-${ci}">
+              ${cl.items.map((item,ii)=>`<div class="checklist-row">
+                <div class="check ${item.done?'done':''}" style="width:15px;height:15px;font-size:9px;" onclick="toggleClItem(${id},${ci},${ii})">${item.done?'✓':''}</div>
+                <input class="cl-text ${item.done?'done-txt':''}" value="${item.text}" ${e?'':'readonly'} onchange="tasks.find(x=>x.id===${id}).checklists[${ci}].items[${ii}].text=this.value">
+                ${e?`<button class="del-btn" onclick="delClItem(${id},${ci},${ii})">✕</button>`:''}
+              </div>`).join('')}
+            </div>
+            ${e?`<button class="add-row-btn" onclick="addClItem(${id},${ci})">＋ Add item</button>`:''}
+          </div>`).join('')}
+          ${e?`<button class="add-row-btn" onclick="addChecklist(${id})">＋ Create checklist</button>`:''}
+        </div>
+
+        <div class="task-section">
+          <div class="task-section-title">📎 Attachments <span style="font-size:11px;font-weight:400;color:var(--tx3);">Links to Drive / Figma / Notion</span></div>
+          <div id="attach-${id}">
+            ${t.attachments.map((att,ai)=>`<div class="attach-row">
+              <div class="attach-icon">${att.icon||'🔗'}</div>
+              <div style="flex:1;min-width:0;">
+                <div class="attach-name">${att.name}</div>
+                <div class="attach-meta">${att.type||'Link'} · Added ${att.added}</div>
+              </div>
+              <a href="${att.url}" target="_blank" class="btn btn-xs">Open ↗</a>
+              ${e?`<button class="del-btn" style="opacity:1;" onclick="delAttach(${id},${ai})">✕</button>`:''}
+            </div>`).join('')}
+          </div>
+          ${e?`<button class="add-row-btn" onclick="addAttach(${id})">＋ Add link / attachment</button>`:''}
+        </div>
+      </div>
+
+      <div class="task-panel-activity" style="display:flex;flex-direction:column;">
+        <div class="tpa-head">Activity</div>
+        <div class="tpa-list" id="tpa-${id}">
+          ${(t.taskLog||[]).slice().reverse().map(l=>`<div class="tpa-item"><div>${gT(l.u).name} ${l.txt}</div><div class="tpa-time">${l.ts}</div></div>`).join('')}
+        </div>
+        <div class="tpa-cmt">
+          <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Comments</div>
+          ${t.cmts.map(cm=>`<div class="cmt" style="margin-bottom:10px;">${av(gT(cm.u),'av-sm')}<div class="cmt-body"><div class="cmt-meta"><strong>${gT(cm.u).name}</strong> · ${cm.ts}</div><div class="cmt-text">${cm.t}</div></div></div>`).join('')}
+          <div class="cmt-input-row">
+            <textarea class="cmt-area" id="ci-${id}" placeholder="Write a comment…" rows="2"></textarea>
+            <button class="btn btn-xs btn-dark" onclick="addCmt(${id})">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  // Save title on blur
+  if(e){
+    const ti=document.getElementById('tt-'+id);
+    if(ti)ti.addEventListener('blur',()=>{tasks.find(x=>x.id===id).name=ti.value.trim()||ti.value;});
+  }
+}
+function closeTaskPanel(){const ov=document.getElementById('task-ov');if(ov)ov.classList.remove('open');renderView(cv);}
+function refreshTaskActivity(id){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  const el=document.getElementById('tpa-'+id);
+  if(el)el.innerHTML=(t.taskLog||[]).slice().reverse().map(l=>`<div class="tpa-item"><div>${gT(l.u).name} ${l.txt}</div><div class="tpa-time">${l.ts}</div></div>`).join('');
+}
+function tsNow(){return new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}
+function addCmt(id){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  const txt=document.getElementById('ci-'+id)?.value?.trim();
+  if(!t||!txt)return;
+  t.cmts.push({u:cu.id,t:txt,ts:'just now'});
+  t.taskLog.push({u:cu.id,txt:`commented: "${txt.substring(0,50)}"`,ts:tsNow()});
+  logAct(`Commented on "${t.name.substring(0,40)}"`, 'task');
+  fbSaveTasks();
+  openTaskDr(id);
+}
+function toggleSubtask(id,i){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  t.subtasks[i].done=!t.subtasks[i].done;
+  t.taskLog.push({u:cu.id,txt:`${t.subtasks[i].done?'completed':'reopened'} subtask "${t.subtasks[i].text.substring(0,30)}"`,ts:tsNow()});
+  fbSaveTasks();
+  openTaskDr(id);
+}
+function delSubtask(id,i){const t=ensureTaskFields(tasks.find(t=>t.id===id));t.subtasks.splice(i,1);openTaskDr(id);}
+function addSubtask(id){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  t.subtasks.push({text:'New subtask',done:false});
+  openTaskDr(id);
+  setTimeout(()=>{const inputs=document.querySelectorAll(`#subtasks-${id} .subtask-text`);const last=inputs[inputs.length-1];if(last){last.select();}},50);
+}
+function addChecklist(id){
+  const name=prompt('Checklist name (e.g. "Pre-launch checks"):');if(!name)return;
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  t.checklists.push({name,items:[]});
+  t.taskLog.push({u:cu.id,txt:`added checklist "${name}"`,ts:tsNow()});
+  openTaskDr(id);
+}
+function delChecklist(id,ci){const t=ensureTaskFields(tasks.find(t=>t.id===id));t.checklists.splice(ci,1);openTaskDr(id);}
+function addClItem(id,ci){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  t.checklists[ci].items.push({text:'New item',done:false});
+  openTaskDr(id);
+  setTimeout(()=>{const inputs=document.querySelectorAll(`#cl-${id}-${ci} .cl-text`);const last=inputs[inputs.length-1];if(last)last.select();},50);
+}
+function delClItem(id,ci,ii){const t=ensureTaskFields(tasks.find(t=>t.id===id));t.checklists[ci].items.splice(ii,1);openTaskDr(id);}
+function toggleClItem(id,ci,ii){const t=ensureTaskFields(tasks.find(t=>t.id===id));t.checklists[ci].items[ii].done=!t.checklists[ci].items[ii].done;openTaskDr(id);}
+function addAttach(id){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  // Show upload modal
+  let modal=document.getElementById('upload-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='upload-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML=`<div style="background:var(--surf);border-radius:var(--rlg);width:440px;padding:24px;border:1px solid var(--bdr);box-shadow:0 16px 48px rgba(0,0,0,.2);">
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Add attachment</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:18px;">Upload a file or paste a link (Drive, Figma, Notion)</div>
+    <div style="border:2px dashed var(--bdr2);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:14px;cursor:pointer;transition:all .12s;" id="drop-zone" onclick="document.getElementById('file-input-${id}').click()" ondragover="event.preventDefault();this.style.borderColor='var(--grn)'" ondragleave="this.style.borderColor='var(--bdr2)'" ondrop="handleDrop(event,${id})">
+      <div style="font-size:28px;margin-bottom:8px;">📎</div>
+      <div style="font-size:13px;font-weight:500;">Click to upload or drag & drop</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:4px;">PDF, DOCX, PPTX, images, any file · Max 10MB</div>
+      <input type="file" id="file-input-${id}" style="display:none;" onchange="handleFileSelect(this,${id})">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;height:1px;background:var(--bdr);"></div>
+      <div style="font-size:11px;color:var(--tx3);">or paste a link</div>
+      <div style="flex:1;height:1px;background:var(--bdr);"></div>
+    </div>
+    <input class="fi" id="link-url" placeholder="https://drive.google.com/... or figma.com/..." style="margin-bottom:8px;">
+    <input class="fi" id="link-name" placeholder="Name for this link (e.g. Creative Brief v2)" style="margin-bottom:14px;">
+    <div id="upload-progress" style="display:none;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:6px;" id="progress-label">Uploading…</div>
+      <div style="height:4px;background:var(--surf2);border-radius:2px;overflow:hidden;">
+        <div id="progress-bar-fill" style="height:100%;background:var(--grn);border-radius:2px;width:0%;transition:width .2s;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-xs" onclick="closeUploadModal()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="addLinkAttach(${id})">Add link</button>
+    </div>
+  </div>`;
+  modal.style.display='flex';
+}
+function closeUploadModal(){
+  const m=document.getElementById('upload-modal');
+  if(m)m.style.display='none';
+}
+function handleDrop(e,id){
+  e.preventDefault();
+  document.getElementById('drop-zone').style.borderColor='var(--bdr2)';
+  const file=e.dataTransfer.files[0];
+  if(file)processFileUpload(file,id);
+}
+function handleFileSelect(input,id){
+  const file=input.files[0];
+  if(file)processFileUpload(file,id);
+}
+async function processFileUpload(file,id){
+  if(file.size>10*1024*1024){alert('File too large. Max 10MB.');return;}
+  const prog=document.getElementById('upload-progress');
+  const label=document.getElementById('progress-label');
+  const bar=document.getElementById('progress-bar-fill');
+  if(prog){prog.style.display='block';}
+  try{
+    const result=await uploadToCloudinary(file,(pct)=>{
+      if(bar)bar.style.width=pct+'%';
+      if(label)label.textContent='Uploading… '+pct+'%';
+    });
+    const t=ensureTaskFields(tasks.find(t=>t.id===id));
+    const ext=file.name.split('.').pop().toLowerCase();
+    const iconMap={pdf:'📄',doc:'📝',docx:'📝',ppt:'📊',pptx:'📊',xls:'📈',xlsx:'📈',png:'🖼️',jpg:'🖼️',jpeg:'🖼️',gif:'🖼️',mp4:'🎬',mov:'🎬',fig:'🎨'};
+    const icon=iconMap[ext]||'📎';
+    const sizeStr=file.size>1024*1024?(file.size/1024/1024).toFixed(1)+'MB':(file.size/1024).toFixed(0)+'KB';
+    t.attachments.push({name:file.name,url:result.url,type:ext.toUpperCase(),icon,size:sizeStr,added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'})});
+    t.taskLog.push({u:cu.id,txt:`uploaded "${file.name}"`,ts:tsNow()});
+    logAct(`Uploaded "${file.name}" to task "${t.name.substring(0,30)}"`, 'doc');
+    fbSaveTasks();
+    closeUploadModal();
+    openTaskDr(id);
+  }catch(err){
+    if(label)label.textContent='Upload failed: '+err.message;
+    if(bar)bar.style.width='0%';
+    console.error(err);
+  }
+}
+function addLinkAttach(id){
+  const url=document.getElementById('link-url')?.value?.trim();
+  const name=document.getElementById('link-name')?.value?.trim();
+  if(!url){alert('Please paste a URL.');return;}
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  const typeMap={'figma.com':['Figma','🎨'],'docs.google':['Google Doc','📝'],'drive.google':['Google Drive','📁'],'notion.so':['Notion','📓'],'sheets.google':['Google Sheet','📈'],'slides.google':['Google Slides','📊']};
+  let type='Link',icon='🔗';
+  for(const[k,[v,ic]] of Object.entries(typeMap)){if(url.includes(k)){type=v;icon=ic;break;}}
+  const finalName=name||(type!=='Link'?type+' link':'Attachment');
+  t.attachments.push({name:finalName,url,type,icon,added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'})});
+  t.taskLog.push({u:cu.id,txt:`linked "${finalName}"`,ts:tsNow()});
+  logAct(`Linked "${finalName}" to task "${t.name.substring(0,30)}"`, 'doc');
+  fbSaveTasks();
+  closeUploadModal();
+  openTaskDr(id);
+}
+function delAttach(id,ai){
+  const t=ensureTaskFields(tasks.find(t=>t.id===id));
+  if(!confirm('Remove this attachment?'))return;
+  t.attachments.splice(ai,1);openTaskDr(id);
+}
+function deleteTask(id){
+  if(!confirm('Delete this task? This cannot be undone.'))return;
+  const idx=tasks.findIndex(t=>t.id===id);if(idx>-1)tasks.splice(idx,1);
+  closeTaskPanel();renderView(cv);
+}
+
+/* ══════ PITCH DRAWER ══════ */
+function openPitchDr(id){
+  const p=pitches.find(p=>p.id===id);if(!p)return;
+  const typeIcon={Brief:'📄',Deck:'📊',Report:'📈',Proposal:'📋',Other:'📎'};
+  const typeCls={Brief:'dt-brief',Deck:'dt-deck',Report:'dt-report',Proposal:'dt-proposal',Other:'dt-other'};
+  document.getElementById('dt').textContent=p.name;
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Stage</label>
+      <select class="fi" onchange="movePitch('${id}',this.value)">
+        ${P_STAGES.map(s=>`<option value="${s.id}" ${p.stage===s.id?'selected':''}>${s.label}</option>`).join('')}
+        <option value="lost" ${p.stage==='lost'?'selected':''}>Lost</option>
+      </select></div>
+    <div class="fg"><label class="fl">Contact / Source</label><input class="fi" value="${p.contact}" onchange="pitches.find(x=>x.id==='${id}').contact=this.value"></div>
+    <div class="fg"><label class="fl">Est. value / month</label><input class="fi" value="${p.val}" onchange="pitches.find(x=>x.id==='${id}').val=this.value"></div>
+    <div class="fg"><label class="fl">Owner</label>
+      <select class="fi" onchange="pitches.find(x=>x.id==='${id}').who=this.value">${TEAM.filter(m=>m.lead).map(m=>`<option value="${m.id}" ${p.who===m.id?'selected':''}>${m.name}</option>`).join('')}</select>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;align-items:center;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;flex:1;">Docs & Files</div>
+      <button class="btn btn-xs" onclick="addDocToPitch('${id}')">+ Add doc</button>
+    </div>
+    <div id="pitch-docs">
+      ${p.docs.length?p.docs.map((d,i)=>`<div class="doc-row" style="border-radius:var(--rsm);border:1px solid var(--bdr);margin-bottom:6px;">
+        <div class="doc-icon" style="background:var(--surf2);">${typeIcon[d.type]||'📎'}</div>
+        <div style="flex:1;min-width:0;"><div class="doc-name">${d.name}</div><div class="doc-meta">Added ${d.added}</div></div>
+        <span class="doc-type-badge ${typeCls[d.type]||'dt-other'}">${d.type}</span>
+        ${d.url?`<a href="${d.url}" target="_blank" class="btn btn-xs">Open ↗</a>`:''}
+        <button class="btn btn-xs" onclick="removeDoc('${id}',${i})">✕</button>
+      </div>`).join(''):'<div style="font-size:13px;color:var(--tx3);">No docs yet — add briefs, decks, reports.</div>'}
+    </div>`;
+  openDr();
+}
+function movePitch(id,s){
+  const p=pitches.find(p=>p.id===id);if(!p)return;p.stage=s;
+  if(s==='won')logAct(`${p.name} pitch marked as WON!`,'pitch');
+}
+function addDocToPitch(pid){
+  const p=pitches.find(p=>p.id===pid);if(!p)return;
+  const name=prompt('Document name (e.g. "BCG Pitch Deck v2"):');if(!name)return;
+  const type=prompt('Type: Brief / Deck / Report / Proposal / Other')||'Other';
+  const url=prompt('URL or link (leave blank if none):')||'';
+  const d={name,type:DOC_TYPES.includes(type)?type:'Other',url,added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'})};
+  p.docs.push(d);
+  logAct(`Added "${name}" to ${p.name}`,'doc');
+  fbSavePitches();
+  openPitchDr(pid);
+}
+function removeDoc(pid,idx){
+  const p=pitches.find(p=>p.id===pid);if(!p)return;
+  if(!confirm('Remove this doc?'))return;
+  p.docs.splice(idx,1);openPitchDr(pid);
+}
+
+/* ══════ OPS DRAWER ══════ */
+function openOpsDr(id){
+  const o=ops.find(o=>o.id===id);if(!o)return;
+  document.getElementById('dt').textContent=o.name;
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Stage</label>
+      <select class="fi" onchange="ops.find(x=>x.id==='${id}').stage=this.value">
+        ${STAGES.slice(0,5).map(s=>`<option value="${s.id}" ${o.stage===s.id?'selected':''}>${s.label}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Assignee</label>
+      <select class="fi" onchange="ops.find(x=>x.id==='${id}').who=this.value">${TEAM.map(m=>`<option value="${m.id}" ${o.who===m.id?'selected':''}>${m.name}</option>`).join('')}</select></div>
+    <div class="fi-row">
+      <div class="fg"><label class="fl">Start date</label><input type="date" class="fi" value="${o.start||''}" onchange="ops.find(x=>x.id==='${id}').start=this.value"></div>
+      <div class="fg"><label class="fl">Deadline</label><input type="date" class="fi" value="${o.due||''}" onchange="ops.find(x=>x.id==='${id}').due=this.value"></div>
+    </div>
+    <div class="fg"><label class="fl">Progress — ${o.pct}%</label>
+      <input type="range" min="0" max="100" step="5" value="${o.pct}" style="width:100%;" oninput="ops.find(x=>x.id==='${id}').pct=+this.value;this.previousElementSibling.textContent='Progress — '+this.value+'%'">
+      <div class="progress-bar" style="margin-top:8px;height:6px;"><div class="progress-fill" style="width:${o.pct}%"></div></div>
+    </div>`;
+  openDr();
+}
+
+/* ══════ NEW TASK ══════ */
+function openNewTaskDr(defaultAcct,defaultStage){
+  document.getElementById('dt').textContent='New task';
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Task name</label><input class="fi" id="nt-n" placeholder="What needs to be done?"></div>
+    <div class="fg"><label class="fl">Account</label><select class="fi" id="nt-a">${ACCTS.map(a=>`<option value="${a.id}" ${defaultAcct===a.id?'selected':''}>${a.emoji} ${a.name}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Stage</label><select class="fi" id="nt-s">${STAGES.map(s=>`<option value="${s.id}" ${(defaultStage||'backlog')===s.id?'selected':''}>${s.label}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Assign to</label><select class="fi" id="nt-w">${TEAM.map(m=>`<option value="${m.id}">${m.name} — ${m.role}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Priority</label><select class="fi" id="nt-p"><option value="normal">Normal</option><option value="high">High</option></select></div>
+    <div class="fi-row">
+      <div class="fg"><label class="fl">Start date</label><input type="date" class="fi" id="nt-st" value="${today()}"></div>
+      <div class="fg"><label class="fl">Due date</label><input type="date" class="fi" id="nt-d"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+      <button class="btn btn-xs" onclick="closeDr()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="mkTask()">Create task</button>
+    </div>`;
+  openDr();
+}
+function mkTask(){
+  const n=document.getElementById('nt-n')?.value?.trim();if(!n)return;
+  const t={id:nid++,name:n,acct:document.getElementById('nt-a').value,who:document.getElementById('nt-w').value,stage:document.getElementById('nt-s').value,pri:document.getElementById('nt-p').value,start:document.getElementById('nt-st').value,due:document.getElementById('nt-d').value,cmts:[],by:cu.id};
+  tasks.unshift(t);
+  logAct(`Created task "${n}" on ${gA(t.acct).name}`,'task');
+  fbSaveTasks();
+  closeDr();renderView(cv);
+}
+
+/* ══════ NEW PITCH ══════ */
+function openNewPitchDr(defaultStage){
+  document.getElementById('dt').textContent='Add pitch';
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Company name</label><input class="fi" id="np-n" placeholder="e.g. Myntra"></div>
+    <div class="fg"><label class="fl">Contact / Source</label><input class="fi" id="np-c" placeholder="e.g. Warm intro via Saanand"></div>
+    <div class="fg"><label class="fl">Est. value / month</label><input class="fi" id="np-v" placeholder="₹5L/mo"></div>
+    <div class="fg"><label class="fl">Stage</label><select class="fi" id="np-s">${P_STAGES.map(s=>`<option value="${s.id}" ${(defaultStage||'prospecting')===s.id?'selected':''}>${s.label}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Owner</label><select class="fi" id="np-o">${TEAM.filter(m=>m.lead).map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}</select></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-xs" onclick="closeDr()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="mkPitch()">Add pitch</button>
+    </div>`;
+  openDr();
+}
+function mkPitch(){
+  const n=document.getElementById('np-n')?.value?.trim();if(!n)return;
+  pitches.push({id:'p'+Date.now(),name:n,contact:document.getElementById('np-c').value,val:document.getElementById('np-v').value,stage:document.getElementById('np-s').value,who:document.getElementById('np-o').value,docs:[]});
+  logAct(`Added pitch: ${n}`,'pitch');
+  fbSavePitches();
+  closeDr();renderView('pitches');
+}
+
+/* ══════ NEW OPS ══════ */
+function openNewOpsDr(){
+  document.getElementById('dt').textContent='New internal task';
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Task name</label><input class="fi" id="no-n" placeholder="e.g. Hire senior designer"></div>
+    <div class="fg"><label class="fl">Assign to</label><select class="fi" id="no-w">${TEAM.map(m=>`<option value="${m.id}">${m.name} — ${m.role}</option>`).join('')}</select></div>
+    <div class="fi-row">
+      <div class="fg"><label class="fl">Start date</label><input type="date" class="fi" id="no-st" value="${today()}"></div>
+      <div class="fg"><label class="fl">Deadline</label><input type="date" class="fi" id="no-d"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-xs" onclick="closeDr()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="mkOps()">Create</button>
+    </div>`;
+  openDr();
+}
+function mkOps(){
+  const n=document.getElementById('no-n')?.value?.trim();if(!n)return;
+  ops.push({id:'o'+Date.now(),name:n,who:document.getElementById('no-w').value,stage:'backlog',start:document.getElementById('no-st').value,due:document.getElementById('no-d').value,pct:0});
+  logAct(`Added internal task: ${n}`,'task');
+  fbSaveOps();
+  closeDr();renderView('ops');
+}
+
+/* ══════ PEOPLE DRAWERS ══════ */
+function openAddPersonDr(){
+  if(!cu.admin){alert('Only Karan (COO) can add team members.');return;}
+  document.getElementById('dt').textContent='Add team member';
+  document.getElementById('db').innerHTML=`
+    <div class="fg"><label class="fl">Full name</label><input class="fi" id="pm-name" placeholder="e.g. Rohan Pillai"></div>
+    <div class="fg"><label class="fl">Initials (2 letters)</label><input class="fi" id="pm-ini" maxlength="2" placeholder="e.g. RP" style="text-transform:uppercase;"></div>
+    <div class="fg"><label class="fl">Role / Title</label><input class="fi" id="pm-role" placeholder="e.g. Performance Marketer"></div>
+    <div class="fg"><label class="fl">Avatar colour</label>
+      <select class="fi" id="pm-color">
+        ${AV_COLORS.map(c=>`<option value="${c}">${c.replace('av-','')}</option>`).join('')}
+      </select></div>
+    <div class="fg"><label class="fl">Permissions</label>
+      <select class="fi" id="pm-lead">
+        <option value="member">Member (view + update own tasks)</option>
+        <option value="lead">Account Lead (manage own accounts)</option>
+      </select></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-xs" onclick="closeDr()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="mkPerson()">Add member</button>
+    </div>`;
+  openDr();
+}
+function mkPerson(){
+  const name=document.getElementById('pm-name')?.value?.trim();if(!name)return;
+  const ini=document.getElementById('pm-ini')?.value?.trim().toUpperCase().slice(0,2);if(!ini)return;
+  const role=document.getElementById('pm-role')?.value?.trim()||'Team member';
+  const color=document.getElementById('pm-color').value;
+  const isLead=document.getElementById('pm-lead').value==='lead';
+  const id=name.toLowerCase().replace(/[^a-z0-9]/gi,'_')+'_'+Date.now();
+  TEAM.push({id,name,ini,role,color,lead:isLead,admin:false});
+  chatMsgs[id]=[];unread[id]=0;
+  logAct(`Added ${name} to the team`,'announce');
+  fbSaveTeam();
+  closeDr();renderView('people');
+}
+function openEditPersonDr(id){
+  if(!cu.admin){return;}
+  const m=gT(id);
+  document.getElementById('dt').textContent='Edit: '+m.name;
+  document.getElementById('db').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--surf2);border-radius:var(--r);">
+      <div class="av av-lg ${m.color}">${m.ini}</div>
+      <div><div style="font-size:14px;font-weight:600;">${m.name}</div><div style="font-size:11px;color:var(--tx3);">${m.role}</div></div>
+    </div>
+    <div class="fi-row">
+      <div class="fg"><label class="fl">Full name</label><input class="fi" id="ep-name" value="${m.name}" placeholder="Full name"></div>
+      <div class="fg"><label class="fl">Initials</label><input class="fi" id="ep-ini" value="${m.ini}" maxlength="2" placeholder="e.g. KA" style="text-transform:uppercase;"></div>
+    </div>
+    <div class="fg"><label class="fl">Role / Title</label><input class="fi" id="ep-role" value="${m.role}" placeholder="e.g. Senior Designer"></div>
+    <div class="fg"><label class="fl">Avatar colour</label>
+      <select class="fi" id="ep-color">${AV_COLORS.map(c=>`<option value="${c}" ${m.color===c?'selected':''}>${c.replace('av-','')}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Permissions</label>
+      <select class="fi" id="ep-lead">
+        <option value="member" ${!m.lead?'selected':''}>Member — view + update own tasks</option>
+        <option value="lead" ${m.lead?'selected':''}>Account Lead — manage own accounts</option>
+      </select></div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      ${m.id!=='karan'?`<button class="btn btn-xs btn-red" onclick="removePerson('${id}')">Remove from team</button>`:''}
+      <button class="btn btn-xs" onclick="closeDr()">Cancel</button>
+      <button class="btn btn-xs btn-dark" onclick="savePerson('${id}')">Save changes</button>
+    </div>`;
+  openDr();
+}
+function savePerson(id){
+  const m=TEAM.find(m=>m.id===id);if(!m)return;
+  const newName=document.getElementById('ep-name').value.trim();
+  const newIni=document.getElementById('ep-ini')?.value?.trim().toUpperCase().slice(0,2);
+  m.name=newName||m.name;
+  m.ini=newIni||m.ini||(m.name.slice(0,2).toUpperCase());
+  m.role=document.getElementById('ep-role').value.trim()||m.role;
+  m.color=document.getElementById('ep-color').value;
+  m.lead=document.getElementById('ep-lead').value==='lead';
+  fbSaveTeam();
+  // Update sidebar user bar if editing current user
+  if(m.id===cu.id){
+    document.getElementById('sb-av').textContent=m.ini;
+    document.getElementById('sb-av').className='av '+m.color;
+    document.getElementById('sb-name').textContent=m.name;
+    document.getElementById('sb-role').textContent=m.role;
+  }
+  closeDr();renderView('people');
+}
+function removePerson(id){
+  if(id==='karan')return;
+  if(!confirm('Remove this person from the team? Their tasks will remain.'))return;
+  const idx=TEAM.findIndex(m=>m.id===id);
+  if(idx>-1)TEAM.splice(idx,1);
+  delete chatMsgs[id];delete unread[id];
+  fbSaveTeam();
+  closeDr();renderView('people');
+}
+
+/* ══════ LOGIN ══════ */
+function openLov(){
+  document.getElementById('ll').innerHTML=TEAM.map(m=>`<div class="lov-row ${cu.id===m.id?'active':''}" onclick="swUser('${m.id}')">${av(m)}<div style="flex:1;"><div style="font-size:13px;font-weight:500;">${m.name}</div><div style="font-size:10px;color:var(--tx3);">${m.role}${m.admin?' · Admin':m.lead?' · Lead':''}</div></div>${cu.id===m.id?'<span class="badge b-done" style="font-size:10px;">You</span>':''}</div>`).join('');
+  document.getElementById('lov').classList.add('open');
+}
+function closeLov(e){if(!e||e.target===document.getElementById('lov'))document.getElementById('lov').classList.remove('open');}
+function swUser(id){
+  cu=TEAM.find(m=>m.id===id)||cu;
+  document.getElementById('sb-av').textContent=cu.ini;
+  document.getElementById('sb-av').className='av '+cu.color;
+  document.getElementById('sb-name').textContent=cu.name;
+  document.getElementById('sb-role').textContent=cu.role;
+  document.getElementById('lov').classList.remove('open');
+  renderView(cv);
+}
+
+/* ══════ DRAWER ══════ */
+function openDr(){document.getElementById('ov').classList.add('open');}
+function closeDr(e){if(!e||e.target===document.getElementById('ov'))document.getElementById('ov').classList.remove('open');}
+
+
+/* ══════ CUSTOM STAGES PER ACCOUNT ══════ */
+let customStages={};  // acctId -> [{id,label}]
+function getStages(acctId){return customStages[acctId]||STAGES;}
+
+function openManageStages(acctId){
+  if(!cu.admin&&!cu.lead){alert('Account leads and above can customise stages.');return;}
+  const a=gA(acctId);
+  const stages=getStages(acctId);
+  let ov=document.getElementById('modal-ov');
+  if(!ov){ov=document.createElement('div');ov.id='modal-ov';ov.className='modal-ov';ov.innerHTML='<div class="modal-box" onclick="event.stopPropagation()"><div class="modal-head"><div style="font-size:14px;font-weight:600;flex:1;">Customise stages — '+a.name+'</div><button class="btn btn-xs" onclick="closeModal()">✕</button></div><div class="modal-body" id="modal-body"></div></div>';ov.onclick=function(e){if(e.target===ov)closeModal();};document.body.appendChild(ov);}
+  ov.classList.add('open');
+  document.getElementById('modal-body').innerHTML=`
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">Drag to reorder. Changes apply to this account's board only.</div>
+    <div id="stages-list">
+      ${stages.map((s,i)=>`<div class="stage-edit-row" data-i="${i}">
+        <input class="fi" style="flex:1;" value="${s.label}" id="sl-${acctId}-${i}" onchange="updateStageName('${acctId}',${i},this.value)">
+        ${stages.length>2?`<button class="btn btn-xs btn-red" onclick="delStage('${acctId}',${i})">✕</button>`:''}
+      </div>`).join('')}
+    </div>
+    <button class="add-row-btn" onclick="addStage('${acctId}')">＋ Add stage</button>
+    <div class="divider"></div>
+    <div style="display:flex;justify-content:flex-end;"><button class="btn btn-sm btn-dark" onclick="closeModal();showAcctBoard('${acctId}')">Done</button></div>`;
+}
+function updateStageName(acctId,i,val){
+  if(!customStages[acctId])customStages[acctId]=JSON.parse(JSON.stringify(STAGES));
+  customStages[acctId][i].label=val;
+}
+function addStage(acctId){
+  if(!customStages[acctId])customStages[acctId]=JSON.parse(JSON.stringify(STAGES));
+  const id='custom_'+Date.now();
+  customStages[acctId].push({id,label:'New stage'});
+  openManageStages(acctId);
+}
+function delStage(acctId,i){
+  if(!customStages[acctId])customStages[acctId]=JSON.parse(JSON.stringify(STAGES));
+  customStages[acctId].splice(i,1);
+  openManageStages(acctId);
+}
+function closeModal(){const ov=document.getElementById('modal-ov');if(ov)ov.classList.remove('open');}
+
+/* ══════ CREATE / EDIT / DELETE SPACE ══════ */
+function openCreateSpace(){
+  if(!cu.admin){alert('Only Karan (COO) can create new accounts.');return;}
+  let ov=document.getElementById('modal-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='modal-ov';ov.className='modal-ov';
+    ov.innerHTML='<div class="modal-box" style="width:500px;" onclick="event.stopPropagation()"><div class="modal-head"><div style="font-size:14px;font-weight:600;flex:1;"></div><button class="btn btn-xs" onclick="closeModal()">✕</button></div><div class="modal-body" id="modal-body"></div></div>';
+    ov.onclick=function(e){if(e.target===ov)closeModal();};
+    document.body.appendChild(ov);
+  }
+  document.querySelector('#modal-ov .modal-head div').textContent='Add new client account';
+  ov.classList.add('open');
+  const leads=TEAM.filter(m=>m.lead||m.admin);
+  document.getElementById('modal-body').innerHTML=`
+    <div style="background:var(--surf2);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--tx2);">
+      A new account space creates a dedicated Kanban board, overview, and task area for this client.
+    </div>
+    <div class="fi-row">
+      <div class="fg" style="flex:2"><label class="fl">Client / Account name</label><input class="fi" id="ns-name" placeholder="e.g. Zomato" autofocus></div>
+      <div class="fg" style="flex:0 0 80px"><label class="fl">Emoji</label><input class="fi" id="ns-emoji" placeholder="🍕" style="font-size:18px;text-align:center;" maxlength="2" value="📋"></div>
+    </div>
+    <div class="fg"><label class="fl">Mandate / Type of work</label><input class="fi" id="ns-type" placeholder="e.g. Performance Marketing + Social Media"></div>
+    <div class="fi-row">
+      <div class="fg"><label class="fl">Account lead</label>
+        <select class="fi" id="ns-lead">${leads.map(m=>`<option value="${m.id}">${m.name} — ${m.role}</option>`).join('')}</select>
+      </div>
+      <div class="fg"><label class="fl">Colour</label>
+        <select class="fi" id="ns-color">${['av-g','av-b','av-a','av-p','av-r','av-k','av-t','av-o'].map(c=>`<option value="${c}">${c.replace('av-','').toUpperCase()}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-sm btn-grn" onclick="createSpace()">Create account</button>
+    </div>`;
+  // Focus name field
+  setTimeout(()=>document.getElementById('ns-name')?.focus(),100);
+}
+function createSpace(){
+  const name=document.getElementById('ns-name')?.value?.trim();if(!name)return;
+  const id=name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')+'_'+Date.now();
+  const newAcct={id,name,type:document.getElementById('ns-type').value||'New mandate',lead:document.getElementById('ns-lead').value,emoji:document.getElementById('ns-emoji').value||'📋',color:document.getElementById('ns-color').value};
+  ACCTS.push(newAcct);
+  logAct(`Created new space: ${name}`,'announce');
+  fbSaveAccounts();
+  closeModal();buildAcctNav();
+  // Navigate to new space
+  const navEl=document.querySelector(`[data-v="acct-${id}"]`);
+  if(navEl)goNav(navEl,'acct-'+id);
+}
+function openEditSpace(acctId){
+  if(!cu.admin){alert('Only Karan (COO) can edit spaces.');return;}
+  const a=gA(acctId);
+  let ov=document.getElementById('modal-ov');
+  if(!ov){ov=document.createElement('div');ov.id='modal-ov';ov.className='modal-ov';ov.innerHTML='<div class="modal-box" onclick="event.stopPropagation()"><div class="modal-head"><div style="font-size:14px;font-weight:600;flex:1;"></div><button class="btn btn-xs" onclick="closeModal()">✕</button></div><div class="modal-body" id="modal-body"></div></div>';ov.onclick=function(e){if(e.target===ov)closeModal();};document.body.appendChild(ov);}
+  document.querySelector('#modal-ov .modal-head div').textContent='Edit space: '+a.name;
+  ov.classList.add('open');
+  document.getElementById('modal-body').innerHTML=`
+    <div class="fg"><label class="fl">Account name</label><input class="fi" id="es-name" value="${a.name}"></div>
+    <div class="fg"><label class="fl">Emoji</label><input class="fi" id="es-emoji" value="${a.emoji}" style="font-size:20px;" maxlength="2"></div>
+    <div class="fg"><label class="fl">Type / Mandate</label><input class="fi" id="es-type" value="${a.type}"></div>
+    <div class="fg"><label class="fl">Account lead</label><select class="fi" id="es-lead">${TEAM.filter(m=>m.lead).map(m=>`<option value="${m.id}" ${a.lead===m.id?'selected':''}>${m.name}</option>`).join('')}</select></div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm btn-red" onclick="deleteSpace('${acctId}')">Delete space</button>
+      <button class="btn btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-sm btn-dark" onclick="saveSpace('${acctId}')">Save</button>
+    </div>`;
+}
+function saveSpace(id){
+  const a=ACCTS.find(a=>a.id===id);if(!a)return;
+  a.name=document.getElementById('es-name').value.trim()||a.name;
+  a.emoji=document.getElementById('es-emoji').value||a.emoji;
+  a.type=document.getElementById('es-type').value.trim()||a.type;
+  a.lead=document.getElementById('es-lead').value;
+  fbSaveAccounts();
+  closeModal();buildAcctNav();renderView('acct-'+id);
+}
+function deleteSpace(id){
+  if(!confirm('Delete this space and all its tasks? This cannot be undone.'))return;
+  const idx=ACCTS.findIndex(a=>a.id===id);if(idx>-1)ACCTS.splice(idx,1);
+  tasks=tasks.filter(t=>t.acct!==id);
+  fbSaveAccounts();
+  closeModal();buildAcctNav();goNav(document.querySelector('[data-v="dashboard"]'),'dashboard');
+}
+
+
+/* ══════ EXCEL EXPORT ══════ */
+function getWeekStart(){
+  const d=new Date();d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-d.getDay()+1); // Monday
+  return d.toISOString().slice(0,10);
+}
+function exportAllExcel(){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded. Check internet connection.');return;}
+  const wb=XLSX.utils.book_new();
+  // Summary sheet
+  const summaryData=[
+    ['WireFlow Export — Wirality Media'],
+    ['Generated',new Date().toLocaleString('en-IN')],
+    [],
+    ['Account','Open Tasks','In Review','Approved','High Priority'],
+    ...ACCTS.map(a=>{
+      const at=tasks.filter(t=>t.acct===a.id);
+      return[a.name,at.filter(t=>t.stage!=='approved').length,at.filter(t=>t.stage==='review').length,at.filter(t=>t.stage==='approved').length,at.filter(t=>t.pri==='high').length];
+    }),
+    [],
+    ['Total tasks',tasks.length,'','Approved',tasks.filter(t=>t.stage==='approved').length],
+  ];
+  const wsSummary=XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols']=[{wch:28},{wch:14},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Summary');
+  // Per-account sheets
+  ACCTS.forEach(a=>{
+    const at=tasks.filter(t=>t.acct===a.id);
+    const rows=[
+      ['Task','Stage','Priority','Assignee','Start','Due','Subtasks Done','Comments'],
+      ...at.map(t=>[
+        t.name,
+        STAGES.find(s=>s.id===t.stage)?.label||t.stage,
+        t.pri,
+        gT(t.who).name,
+        t.start||'',
+        t.due||'',
+        t.subtasks?(t.subtasks.filter(s=>s.done).length+'/'+t.subtasks.length):'0/0',
+        t.cmts?t.cmts.length:0,
+      ])
+    ];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:36},{wch:18},{wch:10},{wch:14},{wch:12},{wch:12},{wch:14},{wch:10}];
+    // Trim sheet name to 31 chars (Excel limit)
+    XLSX.utils.book_append_sheet(wb,ws,a.name.substring(0,31));
+  });
+  // Pitches sheet
+  const pitchRows=[
+    ['Company','Stage','Value/mo','Contact','Owner','Docs'],
+    ...pitches.map(p=>[p.name,p.stage,p.val,p.contact,gT(p.who).name,p.docs?p.docs.length:0])
+  ];
+  const wsPitch=XLSX.utils.aoa_to_sheet(pitchRows);
+  wsPitch['!cols']=[{wch:24},{wch:14},{wch:12},{wch:24},{wch:14},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,wsPitch,'Pitches');
+  XLSX.writeFile(wb,'WireFlow_Export_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  logAct('Exported full task report to Excel','doc');
+}
+function exportAccountExcel(acctId){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded. Check internet connection.');return;}
+  const a=gA(acctId);
+  const at=tasks.filter(t=>t.acct===acctId);
+  const wb=XLSX.utils.book_new();
+  const rows=[
+    [a.name+' — Task Report'],
+    ['Generated',new Date().toLocaleString('en-IN')],
+    ['Account lead',gT(a.lead).name],
+    [],
+    ['Task','Stage','Priority','Assignee','Start','Due','Description','Subtasks','Comments'],
+    ...at.map(t=>[
+      t.name,
+      STAGES.find(s=>s.id===t.stage)?.label||t.stage,
+      t.pri,
+      gT(t.who).name,
+      t.start||'',
+      t.due||'',
+      t.desc||'',
+      t.subtasks?(t.subtasks.filter(s=>s.done).length+'/'+t.subtasks.length):'0/0',
+      t.cmts?t.cmts.map(c=>gT(c.u).name+': '+c.t).join(' | '):'',
+    ])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:36},{wch:18},{wch:10},{wch:14},{wch:12},{wch:12},{wch:30},{wch:12},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,ws,a.name.substring(0,31));
+  XLSX.writeFile(wb,a.name.replace(/\s+/g,'_')+'_Tasks_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  logAct('Exported '+a.name+' task report to Excel','doc');
+}
+
+/* ══════ LEADERBOARD ══════ */
+// Track approvals with timestamps (seeded with sample data for current week)
+let approvalLog=[
+  {u:'abhijna',ts:'2026-05-12',taskName:'ZaakFlow LinkedIn post series'},
+  {u:'monish', ts:'2026-05-12',taskName:'MobiKwik March social report deck'},
+  {u:'adi',    ts:'2026-05-11',taskName:'Social strategy deck review'},
+  {u:'keerthi',ts:'2026-05-11',taskName:'Go Colors kickoff prep'},
+  {u:'abhijna',ts:'2026-05-10',taskName:'May content calendar draft'},
+  {u:'isaac',  ts:'2026-05-10',taskName:'DreamFolks DOOH banner set'},
+  {u:'adi',    ts:'2026-05-09',taskName:'Magniflex influencer deck v2'},
+  {u:'nisha',  ts:'2026-05-09',taskName:'Bikaji content calendar'},
+  {u:'gokul',  ts:'2026-05-08',taskName:'MobiKwik creatives set'},
+  {u:'devi',   ts:'2026-05-08',taskName:'InMobi brand visual kit'},
+];
+
+function logApproval(taskName, assignee){
+  approvalLog.push({u:assignee, ts:today(), taskName});
+}
+
+function renderLeaderboard(c, ta){
+  ta.innerHTML=`<button class="btn btn-xs" onclick="exportAllExcel()">⬇ Export all to Excel</button>`;
+  const ws=getWeekStart();
+  const weekEnd=new Date();weekEnd.setHours(23,59,59);
+  const weekLogs=approvalLog.filter(l=>l.ts>=ws);
+  // Count per person
+  const counts={};
+  TEAM.forEach(m=>counts[m.id]=0);
+  weekLogs.forEach(l=>{if(counts[l.u]!==undefined)counts[l.u]++;});
+  const ranked=TEAM.map(m=>({...m,count:counts[m.id]||0}))
+    .sort((a,b)=>b.count-a.count);
+  const max=ranked[0]?.count||1;
+  const top=ranked[0];
+  const medals=['🥇','🥈','🥉'];
+  const barColors=['#1D9E75','#2B7FD4','#D4840A','#6B4FBB','#C94040'];
+  c.innerHTML=`<div class="lb-wrap">
+    ${top.count>0?`
+    <div class="lb-hero">
+      <div class="lb-hero-crown">👑</div>
+      <div class="lb-hero-info">
+        <div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">This week's top performer</div>
+        <div class="lb-hero-name">${top.name}</div>
+        <div class="lb-hero-sub">${top.role}</div>
+      </div>
+      <div>
+        <div class="lb-hero-count">${top.count}</div>
+        <div class="lb-hero-clbl">tasks approved</div>
+      </div>
+    </div>`:
+    `<div style="background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rlg);padding:24px;text-align:center;margin-bottom:18px;color:var(--tx3);">
+      <div style="font-size:32px;margin-bottom:8px;">🏁</div>
+      <div style="font-size:14px;">No approvals yet this week.</div>
+      <div style="font-size:12px;margin-top:4px;">Tasks approved appear here. Let's get moving.</div>
+    </div>`}
+    <div class="lb-week">
+      <span>Week of ${new Date(ws).toLocaleDateString('en-GB',{day:'numeric',month:'long'})}</span>
+      <span>${weekLogs.length} task${weekLogs.length!==1?'s':''} approved this week across the team</span>
+    </div>
+    ${ranked.map((m,i)=>`
+      <div class="lb-row" style="${i===0&&m.count>0?'border-color:var(--amb);background:var(--amb-bg);':''}">
+        <div class="lb-medal">${i<3&&m.count>0?medals[i]:'<span style="font-size:14px;color:var(--tx3);">'+(i+1)+'</span>'}</div>
+        ${av(m,'av-sm')}
+        <div style="flex:1;min-width:0;">
+          <div class="lb-name">${m.name}</div>
+          <div class="lb-role">${m.role}</div>
+          <div class="lb-bar-wrap" style="width:100%;margin-top:4px;">
+            <div class="lb-bar"><div class="lb-bar-fill" style="width:${max>0?(m.count/max*100):0}%;background:${barColors[i%barColors.length]};"></div></div>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div class="lb-count">${m.count}</div>
+          <div class="lb-unit">approved</div>
+        </div>
+      </div>`).join('')}
+    <div style="margin-top:20px;padding:14px 16px;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);">
+      <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Recent approvals this week</div>
+      ${weekLogs.length?weekLogs.slice().reverse().slice(0,8).map(l=>{const m=gT(l.u);return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);">
+        ${av(m,'av-sm')}
+        <div style="flex:1;font-size:12px;">${m.name} approved <em>${l.taskName}</em></div>
+        <div style="font-size:10px;color:var(--tx3);">${l.ts}</div>
+      </div>`;}).join(''):'<div style="font-size:13px;color:var(--tx3);">Nothing yet.</div>'}
+    </div>
+  </div>`;
+}
+
+/* ══════ HOOK APPROVALS INTO STAGE CHANGES ══════ */
+// Wrap the existing stage-change logic to log approvals
+function onStageChange(taskId, newStage){
+  const t=tasks.find(t=>t.id===taskId);
+  if(!t)return;
+  if(newStage==='approved'){
+    logApproval(t.name, t.who);
+    logAct('"'+t.name.substring(0,40)+'" approved','task');
+    fbSaveApprovals();
+  }
+  fbSaveTasks();
+}
+
+/* ══════ INIT ══════ */
+loadChatFromStorage();
+// Load persisted team + accounts from Firebase, then boot
+fbLoadTeamAndAccounts(()=>{
+  buildAcctNav();
+  renderView('dashboard');
+  updUnread();
+  // Sync chat after UI is ready
+  setTimeout(syncChatFromFirebase, 1500);
+});
+// Fallback: if Firebase takes too long, boot anyway
+setTimeout(()=>{
+  if(!document.getElementById('content').innerHTML){
+    buildAcctNav();renderView('dashboard');updUnread();
+  }
+}, 3000);
+</script>
+</body>
+</html>
