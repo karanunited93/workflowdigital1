@@ -665,6 +665,8 @@ function renderView(v){
   const c=document.getElementById('content');
   const ta=document.getElementById('tbar-actions');
   ta.innerHTML='';
+  // Reset content styles for non-account views
+  if(!v.startsWith('acct-')) c.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;';
   if(v==='dashboard') renderDash(c);
   else if(v.startsWith('acct-')) renderAcct(v.replace('acct-',''),c,ta);
   else if(v==='pitches') renderPitches(c,ta);
@@ -748,8 +750,9 @@ function renderAcct(id,c,ta){
     ${cu.admin?`<button class="btn btn-xs" onclick="openEditSpace('${id}')">Edit space</button>`:''}
     <button class="btn btn-xs" onclick="exportAccountExcel('${id}')">⬇ Export</button>
     <button class="btn btn-xs btn-grn" onclick="openNewTaskDr('${id}')">+ Add task</button>`;
+  c.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;';
   c.innerHTML=`
-    <div class="tabs" id="acct-tabs">
+    <div class="tabs" id="acct-tabs" style="flex-shrink:0;">
       <div class="tab active" onclick="switchAcctTab(this,'board','${id}')">Board</div>
       <div class="tab" onclick="switchAcctTab(this,'overview','${id}')">Overview</div>
     </div>
@@ -763,25 +766,31 @@ function switchAcctTab(el,tab,id){
   else showAcctOverview(id);
 }
 function showAcctBoard(id){
+  const body=document.getElementById('acct-body');
+  if(!body)return;
   const acctTasks=tasks.filter(t=>t.acct===id);
-  document.getElementById('acct-body').innerHTML=`
-    <div style="display:flex;flex:1;overflow:hidden;min-height:0;">
-      <div class="kanban-wrap">
-        ${getStages(id).map(s=>{const cards=acctTasks.filter(t=>t.stage===s.id);
-          return`<div class="k-col">
-            <div class="k-col-head"><div class="k-col-title">${s.label}</div><div class="k-count">${cards.length}</div></div>
-            <div class="k-cards">${cards.map(t=>{const m=gT(t.who);const late=isOverdue(t.due);
+  body.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;';
+  body.innerHTML=`<div style="flex:1;display:flex;overflow:hidden;min-height:0;">
+    <div class="kanban-wrap" style="flex:1;display:flex;gap:11px;padding:14px 18px;overflow-x:auto;overflow-y:hidden;align-items:flex-start;">
+      ${getStages(id).map(s=>{const cards=acctTasks.filter(t=>t.stage===s.id);
+        return`<div class="k-col" style="width:230px;min-width:230px;background:var(--surf2);border-radius:var(--r);display:flex;flex-direction:column;height:calc(100vh - 160px);max-height:calc(100vh - 160px);">
+          <div class="k-col-head"><div class="k-col-title">${s.label}</div><div class="k-count">${cards.length}</div></div>
+          <div class="k-cards" style="flex:1;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:6px;">
+            ${cards.map(t=>{const m=gT(t.who);const late=isOverdue(t.due);
               return`<div class="k-card" onclick="openTaskDr(${t.id})">
                 <div class="k-card-name">${t.name}</div>
                 <div class="k-card-foot">
                   <div class="k-due ${late?'late':''}">${t.due?fmtDate(t.due):''}</div>
                   ${t.pri==='high'?'<span class="badge b-high" style="font-size:9px;padding:1px 5px;">!</span>':''}
                   ${av(m,'av-sm')}
-                </div></div>`;}).join('')}</div>
-            <div class="k-add"><button class="k-add-btn" onclick="openNewTaskDr('${id}','${s.id}')">+ Add task</button></div>
-          </div>`;}).join('')}
-      </div>
-    </div>`;
+                </div></div>`;}).join('')}
+          </div>
+          <div class="k-add" style="padding:6px 7px;flex-shrink:0;">
+            <button class="k-add-btn" onclick="openNewTaskDr('${id}','${s.id}')">+ Add task</button>
+          </div>
+        </div>`;}).join('')}
+    </div>
+  </div>`;
 }
 function showAcctOverview(id){
   const a=gA(id);const lead=gT(a.lead);
@@ -845,8 +854,8 @@ function switchPitchTab(el,tab){
 }
 function showPitchKanban(){
   document.getElementById('pitch-body').innerHTML=`
-    <div style="flex:1;display:flex;overflow:hidden;">
-      <div class="kanban-wrap">
+    <div style="flex:1;display:flex;overflow:hidden;min-height:0;">
+      <div class="kanban-wrap" style="flex:1;display:flex;gap:11px;padding:14px 18px;overflow-x:auto;overflow-y:hidden;align-items:flex-start;">
         ${P_STAGES.map(s=>{const cards=pitches.filter(p=>p.stage===s.id);
           return`<div class="k-col">
             <div class="k-col-head"><div class="k-col-title">${s.label}</div><div class="k-count">${cards.length}</div></div>
