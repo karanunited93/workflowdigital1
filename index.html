@@ -1403,7 +1403,7 @@ function showAcctOverview(acctId) {
     html += '<span style="font-size:10px;color:#A8A69E">' + openCount + ' open</span>';
     html += '</div>';
   });
-  if (isAdmin()) {
+  if (isLead()) {
     html += '<button class="btn-xs" style="margin-top:4px;width:100%" onclick="openEditAcctModal(\'' + acctId + '\')">Manage Team</button>';
   }
   html += '</div>';
@@ -1524,8 +1524,14 @@ function openAddTaskModal(acctId, stageIdx) {
   html += '<div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="nt-priority">' +
     ['low','medium','high','urgent'].map(function(p){return '<option value="'+p+'">'+p.charAt(0).toUpperCase()+p.slice(1)+'</option>';}).join('') + '</select></div>';
   html += '</div>';
+  // Assignee: lead + team members for this account; fall back to everyone if team not set
+  acct.team = acct.team || [];
+  var assignableIds = [acct.lead].concat(acct.team.filter(function(id){return id !== acct.lead;}));
+  if (assignableIds.length === 0) assignableIds = STATE.people.map(function(p){return p.id;});
+  var assignablePeople = STATE.people.filter(function(p){return assignableIds.indexOf(p.id) >= 0;});
+  if (assignablePeople.length === 0) assignablePeople = STATE.people;
   html += '<div class="form-group"><label class="form-label">Assignee</label><select class="form-select" id="nt-assignee">' +
-    STATE.people.map(function(p){return '<option value="'+p.id+'">'+p.name+'</option>';}).join('') + '</select></div>';
+    assignablePeople.map(function(p){return '<option value="'+p.id+'">'+p.name+' — '+p.role+'</option>';}).join('') + '</select></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   html += '<div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="nt-start"></div>';
   html += '<div class="form-group"><label class="form-label">Due Date</label><input type="date" class="form-input" id="nt-due"></div>';
@@ -1587,7 +1593,7 @@ function openAddAcctModal() {
 }
 
 function openEditAcctModal(acctId) {
-  if (!isAdmin()) return;
+  if (!isLead()) return;
   var acct = getAccount(acctId);
   if (!acct) return;
   acct.team = acct.team || [];
@@ -1637,7 +1643,7 @@ function addAcctTeamMember(acctId) {
   acct.team = acct.team || [];
   if (acct.team.indexOf(sel.value) < 0) acct.team.push(sel.value);
   saveToStorage();
-  openEditAcctModal(acctId);
+  openEditAcctModal(acctId); // re-render modal with updated team
 }
 
 function removeAcctTeamMember(acctId, personId) {
@@ -1681,7 +1687,11 @@ function saveAccount(acctId) {
   saveToStorage();
   closeModal();
   renderSidebar();
-  if (STATE.currentAcct === acctId) navigate('acct', acctId);
+  if (STATE.currentAcct === acctId) {
+    // Stay on overview tab after saving
+    renderAcct(acctId);
+    setTimeout(function(){ switchAcctTab('overview'); }, 50);
+  }
 }
 
 function deleteAccount(acctId) {
@@ -1740,22 +1750,20 @@ function showPitchBoard() {
     html += '>';
 
     for (var pi = 0; pi < pitches.length; pi++) {
-      var p = pitches[pi];
-      html += '<div';
-      html += ' draggable="true"';
-      html += ' data-pitch-id="' + p.id + '"';
-      html += ' ondragstart="pitchDragStart(event,\'' + p.id + '\')"';
+      var pc = pitches[pi];
+      var cardStyle = 'background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,0.08);padding:12px;margin-bottom:8px;cursor:grab;transition:box-shadow 0.12s,opacity 0.15s';
+      html += '<div draggable="true" data-pitch-id="' + pc.id + '" id="pcard-' + pc.id + '" style="' + cardStyle + '"';
+      html += ' ondragstart="pitchDragStart(event,this)"';
       html += ' ondragend="pitchDragEnd(event)"';
-      html += ' onclick="pitchCardClick(event,\'' + p.id + '\')"';
-      html += ' style="background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,0.08);padding:12px;margin-bottom:8px;cursor:grab;transition:box-shadow 0.12s,opacity 0.15s"';
+      html += ' onclick="pitchCardClick(event,this)"';
       html += ' onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'"';
       html += ' onmouseout="this.style.boxShadow=\'none\'"';
       html += '>';
-      html += '<div style="font-size:13px;font-weight:600;color:#18170F;margin-bottom:5px">' + p.company + '</div>';
-      if (p.value) html += '<div style="font-size:11px;color:#1D9E75;font-weight:600;margin-bottom:5px">₹' + Math.round(p.value).toLocaleString('en-IN') + '/mo</div>';
+      html += '<div style="font-size:13px;font-weight:600;color:#18170F;margin-bottom:5px">' + pc.company + '</div>';
+      if (pc.value) html += '<div style="font-size:11px;color:#1D9E75;font-weight:600;margin-bottom:5px">₹' + Math.round(pc.value).toLocaleString('en-IN') + '/mo</div>';
       html += '<div style="display:flex;align-items:center;justify-content:space-between">';
-      html += '<span style="font-size:10px;color:#A8A69E">' + (p.docs||[]).length + ' docs</span>';
-      html += avatarHtml(p.owner, 'sm');
+      html += '<span style="font-size:10px;color:#A8A69E">' + (pc.docs||[]).length + ' docs</span>';
+      html += avatarHtml(pc.owner, 'sm');
       html += '</div></div>';
     }
     html += '</div>';
@@ -1772,13 +1780,14 @@ function showPitchBoard() {
 var DRAG_PITCH_ID = null;
 var DRAG_PITCH_SRC = null;
 
-function pitchDragStart(event, pitchId) {
+function pitchDragStart(event, el) {
+  var pitchId = el.getAttribute('data-pitch-id');
   DRAG_PITCH_ID = pitchId;
   var pitch = STATE.pitches.find(function(p){return p.id === pitchId;});
   DRAG_PITCH_SRC = pitch ? pitch.stage : null;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', pitchId);
-  setTimeout(function(){ if(event.target) event.target.style.opacity = '0.4'; }, 0);
+  setTimeout(function(){ el.style.opacity = '0.4'; }, 0);
 }
 
 function pitchDragEnd(event) {
@@ -1811,7 +1820,8 @@ function pitchDrop(event, newStage) {
   showPitchBoard();
 }
 
-function pitchCardClick(event, pitchId) {
+function pitchCardClick(event, el) {
+  var pitchId = el.getAttribute('data-pitch-id');
   var pitch = STATE.pitches.find(function(p){return p.id === pitchId;});
   if (DRAG_PITCH_ID === pitchId && pitch && pitch.stage !== DRAG_PITCH_SRC) {
     DRAG_PITCH_ID = null; DRAG_PITCH_SRC = null; return;
