@@ -119,6 +119,7 @@ input,textarea,select{font-family:'DM Sans',sans-serif;outline:none;border:none}
 .subtask-text.done{text-decoration:line-through;color:#A8A69E}
 .subtask-del{color:#A8A69E;font-size:11px;cursor:pointer;padding:2px 4px;border-radius:3px;background:transparent}
 .subtask-del:hover{background:#FDDCDC;color:#C94040}
+.del-btn:hover{color:#C94040 !important}
 .checklist-item{display:flex;align-items:center;gap:8px;padding:4px 0}
 .act-item{display:flex;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,0.05)}
 .act-item:last-child{border-bottom:none}
@@ -910,7 +911,7 @@ function renderTaskPanel(task, canEdit, acct) {
   leftHtml += '<textarea class="tp-desc" id="tp-desc" ' + (canEdit?'':'readonly') + ' placeholder="Add a description..." onblur="saveTaskField(\'description\')">' + (task.description || '') + '</textarea>';
 
   // Subtasks
-  leftHtml += '<div class="panel-section-head">Subtasks <span style="font-size:10px;color:#A8A69E">' + (task.subtasks||[]).filter(function(s){return s.done;}).length + '/' + (task.subtasks||[]).length + '</span>' +
+  leftHtml += '<div class="panel-section-head">Subtasks' +
     (canEdit ? '<button class="btn-xs" onclick="addSubtask()">+ Add</button>' : '') + '</div>';
   leftHtml += '<div id="tp-subtasks">' + renderSubtasks(task, canEdit) + '</div>';
 
@@ -948,15 +949,37 @@ function renderTaskPanel(task, canEdit, acct) {
 }
 
 function renderSubtasks(task, canEdit) {
-  if (!task.subtasks || task.subtasks.length === 0) return '<div style="color:#A8A69E;font-size:11px;padding:4px 0">No subtasks</div>';
-  var html = '';
-  task.subtasks.forEach(function(s, i) {
-    html += '<div class="subtask-item">' +
-      '<input type="checkbox" class="subtask-check" ' + (s.done?'checked':'') + (canEdit?' onclick="toggleSubtask('+i+')"':' disabled') + '>' +
-      '<span class="subtask-text' + (s.done?' done':'') + '">' + s.text + '</span>' +
-      (canEdit ? '<span class="subtask-del" onclick="deleteSubtask('+i+')">✕</span>' : '') +
-      '</div>';
+  var subtasks = task.subtasks || [];
+  var doneCount = subtasks.filter(function(s){return s.done;}).length;
+  var total = subtasks.length;
+  var pct = total > 0 ? Math.round((doneCount/total)*100) : 0;
+
+  if (total === 0) {
+    return '<div style="color:#A8A69E;font-size:11px;padding:5px 0 2px">No subtasks added</div>';
+  }
+
+  // Progress bar
+  var html = '<div style="margin-bottom:8px">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+  html += '<span style="font-size:10px;color:#A8A69E">' + doneCount + ' of ' + total + ' complete</span>';
+  html += '<span style="font-size:10px;font-weight:600;color:' + (pct===100?'#1D9E75':'#6A6860') + '">' + pct + '%</span>';
+  html += '</div>';
+  html += '<div style="height:3px;background:#EFEDE7;border-radius:2px;overflow:hidden">';
+  html += '<div style="height:100%;width:' + pct + '%;background:#1D9E75;border-radius:2px;transition:width 0.3s"></div>';
+  html += '</div></div>';
+
+  // Items
+  subtasks.forEach(function(s, i) {
+    var rowBg = s.done ? 'background:#F9F9F7;' : 'background:#fff;';
+    html += '<div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;margin-bottom:4px;border:1px solid rgba(0,0,0,' + (s.done?'0.05':'0.08') + ');' + rowBg + 'transition:background 0.1s">';
+    html += '<input type="checkbox" ' + (s.done?'checked':'') + (canEdit?' onclick="toggleSubtask('+i+')"':' disabled') + ' style="width:15px;height:15px;flex-shrink:0;cursor:' + (canEdit?'pointer':'default') + ';accent-color:#1D9E75">';
+    html += '<span style="flex:1;font-size:12px;' + (s.done?'text-decoration:line-through;color:#A8A69E;':'color:#18170F;') + '">' + s.text + '</span>';
+    if (canEdit) {
+      html += '<button onclick="deleteSubtask('+i+')" class="del-btn" style="background:none;border:none;cursor:pointer;font-size:13px;color:#D0CEC8;padding:2px 4px;border-radius:3px;flex-shrink:0">✕</button>';
+    }
+    html += '</div>';
   });
+
   return html;
 }
 
@@ -1654,12 +1677,18 @@ function renderPitchPanelHtml(pitch) {
   // Docs
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:4px">';
   html += '<div style="font-size:11px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px">Docs</div>';
-  if (isLead()) html += '<button class="btn-xs" onclick="addPitchDoc(\''+pitch.id+'\')">+ Add</button>';
+  html += '<div style="display:flex;gap:5px">';
+  if (isLead()) html += '<button class="btn-xs" onclick="addPitchDoc(\''+pitch.id+'\')">+ Add Doc</button>';
   html += '</div>';
+  html += '</div>';
+  if ((pitch.docs||[]).length === 0) {
+    html += '<div style="color:#A8A69E;font-size:12px;padding:6px 0">No docs attached yet</div>';
+  }
   (pitch.docs||[]).forEach(function(d,i) {
-    html += '<div class="attach-item"><span class="attach-type">' + (d.type||'Doc') + '</span>';
+    html += '<div class="attach-item">';
+    html += '<span class="attach-type">' + (d.type||'Doc') + '</span>';
     html += '<a class="attach-link" href="'+d.url+'" target="_blank">' + d.name + '</a>';
-    if (isLead()) html += '<button style="font-size:11px;cursor:pointer;background:none;border:none;color:#A8A69E" onclick="deletePitchDoc(\''+pitch.id+'\','+i+')">✕</button>';
+    if (isLead()) html += '<button class="del-btn" style="font-size:11px;cursor:pointer;background:none;border:none;color:#D0CEC8;padding:2px 4px;border-radius:3px" onclick="deletePitchDoc(\''+pitch.id+'\','+i+')">✕</button>';
     html += '</div>';
   });
 
@@ -1729,28 +1758,127 @@ function closePitchPanel() {
 function renderOps() {
   var vc = document.getElementById('view-container');
   vc.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column';
-  var html = '<div style="overflow-y:auto;flex:1">';
-  html += '<div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.07);font-size:11px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px">';
-  html += '<div style="flex:2">Task</div><div style="flex:1">Assignee</div><div style="flex:1">Stage</div>';
-  html += '<div style="flex:1.5">Dates</div><div style="flex:1.5">Progress</div></div>';
 
-  STATE.opsTasks.forEach(function(t) {
+  var OPS_STAGE_STYLES = {
+    'Backlog':  'background:#F5F4F0;color:#6A6860',
+    'Planning': 'background:#D0E8F9;color:#1A5A9A',
+    'In Progress': 'background:#FDE8C8;color:#8B5200',
+    'Done':     'background:#D1F0E5;color:#0D6B4E'
+  };
+
+  var active = STATE.opsTasks.filter(function(t){return t.stage !== 'Done';});
+  var done   = STATE.opsTasks.filter(function(t){return t.stage === 'Done';});
+
+  function opsRowHtml(t) {
     var p = getPerson(t.assignee);
     var canEdit = isLead();
-    html += '<div class="ops-row">';
-    html += '<div class="ops-name">' + t.name + '</div>';
-    html += '<div class="ops-assignee">' + avatarHtml(t.assignee, 'sm') + '<span style="font-size:11px">' + p.name.split(' ')[0] + '</span></div>';
-    html += '<div class="ops-stage"><span style="font-size:10px;background:#EFEDE7;color:#6A6860;padding:2px 7px;border-radius:10px;font-weight:600">' + t.stage + '</span></div>';
-    html += '<div class="ops-dates">' + (t.startDate ? formatDate(t.startDate) : '') + (t.deadline ? ' → ' + formatDate(t.deadline) : '') + '</div>';
-    html += '<div class="ops-prog" style="display:flex;align-items:center;gap:7px">';
-    html += '<div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:' + (t.progress||0) + '%"></div></div>';
-    html += '<span style="font-size:10px;color:#6A6860;width:28px">' + (t.progress||0) + '%</span>';
-    if (canEdit) html += '<input type="range" min="0" max="100" value="' + (t.progress||0) + '" style="width:60px" onchange="updateOpsProgress(\'' + t.id + '\',this.value)">';
-    html += '</div></div>';
-  });
+    var isDone = t.stage === 'Done';
+    var stageStyle = OPS_STAGE_STYLES[t.stage] || 'background:#EFEDE7;color:#6A6860';
+    var rowStyle = isDone ? 'opacity:0.65;' : '';
+    var nameStyle = isDone ? 'text-decoration:line-through;color:#A8A69E' : '';
+    var overdue = !isDone && t.deadline && isOverdue(t.deadline);
+
+    var h = '<div class="ops-row" style="' + rowStyle + '">';
+    // Name + done toggle
+    h += '<div class="ops-name" style="display:flex;align-items:center;gap:8px">';
+    if (canEdit) {
+      h += '<input type="checkbox" ' + (isDone?'checked':'') + ' onchange="toggleOpsDone(\'' + t.id + '\')" style="cursor:pointer;accent-color:#1D9E75;width:14px;height:14px;flex-shrink:0">';
+    }
+    h += '<span style="' + nameStyle + '">' + t.name + '</span>';
+    h += '</div>';
+    // Assignee
+    h += '<div class="ops-assignee">' + avatarHtml(t.assignee, 'sm') + '<span style="font-size:11px">' + p.name.split(' ')[0] + '</span></div>';
+    // Stage dropdown
+    h += '<div class="ops-stage">';
+    if (canEdit) {
+      h += '<select onchange="updateOpsStage(\'' + t.id + '\',this.value)" style="font-size:11px;padding:2px 6px;border-radius:5px;border:1px solid rgba(0,0,0,0.1);font-family:inherit;cursor:pointer;' + stageStyle + '">';
+      ['Backlog','Planning','In Progress','Done'].forEach(function(s) {
+        h += '<option value="' + s + '"' + (t.stage===s?' selected':'') + '>' + s + '</option>';
+      });
+      h += '</select>';
+    } else {
+      h += '<span style="font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;' + stageStyle + '">' + t.stage + '</span>';
+    }
+    h += '</div>';
+    // Dates
+    h += '<div class="ops-dates" style="' + (overdue?'color:#C94040;font-weight:600':'') + '">';
+    h += (t.startDate ? formatDate(t.startDate) : '') + (t.deadline ? ' → ' + formatDate(t.deadline) : '');
+    if (overdue) h += ' ⚠';
+    h += '</div>';
+    // Progress
+    h += '<div class="ops-prog" style="display:flex;align-items:center;gap:7px">';
+    h += '<div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:' + (t.progress||0) + '%;background:' + (isDone?'#1D9E75':'#1D9E75') + '"></div></div>';
+    h += '<span style="font-size:10px;color:#6A6860;width:28px">' + (t.progress||0) + '%</span>';
+    if (canEdit && !isDone) h += '<input type="range" min="0" max="100" value="' + (t.progress||0) + '" style="width:55px" oninput="updateOpsProgress(\'' + t.id + '\',this.value)">';
+    h += '</div>';
+    // Delete
+    if (canEdit) {
+      h += '<div style="flex-shrink:0;margin-left:4px"><button onclick="deleteOpsTask(\'' + t.id + '\')" class="del-btn" style="background:none;border:none;cursor:pointer;font-size:13px;color:#D0CEC8;padding:2px 4px;border-radius:3px" title="Delete task">✕</button></div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  var html = '<div style="overflow-y:auto;flex:1">';
+  // Header
+  html += '<div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.07);font-size:11px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px">';
+  html += '<div style="flex:2">Task</div><div style="flex:1">Assignee</div><div style="flex:1">Stage</div>';
+  html += '<div style="flex:1.5">Dates</div><div style="flex:1.5">Progress</div><div style="width:24px"></div></div>';
+
+  // Active tasks
+  if (active.length === 0 && done.length === 0) {
+    html += '<div style="padding:30px;text-align:center;color:#A8A69E;font-size:13px">No ops tasks yet. Add one above.</div>';
+  }
+  active.forEach(function(t){ html += opsRowHtml(t); });
+
+  // Done section — collapsible divider
+  if (done.length > 0) {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-top:4px;border-top:1px solid rgba(0,0,0,0.07);cursor:pointer" onclick="toggleOpsDoneSection()" id="ops-done-header">';
+    html += '<span style="font-size:11px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px">Done</span>';
+    html += '<span style="font-size:10px;background:#D1F0E5;color:#0D6B4E;padding:1px 6px;border-radius:10px;font-weight:600">' + done.length + '</span>';
+    html += '<span style="font-size:11px;color:#A8A69E;margin-left:auto" id="ops-done-toggle">▾</span>';
+    html += '</div>';
+    html += '<div id="ops-done-section">';
+    done.forEach(function(t){ html += opsRowHtml(t); });
+    html += '</div>';
+  }
 
   html += '</div>';
   vc.innerHTML = html;
+}
+
+function toggleOpsDoneSection() {
+  var section = document.getElementById('ops-done-section');
+  var toggle = document.getElementById('ops-done-toggle');
+  if (!section) return;
+  var hidden = section.style.display === 'none';
+  section.style.display = hidden ? '' : 'none';
+  if (toggle) toggle.textContent = hidden ? '▾' : '▸';
+}
+
+function toggleOpsDone(taskId) {
+  var t = STATE.opsTasks.find(function(x){return x.id === taskId;});
+  if (!t) return;
+  t.stage = t.stage === 'Done' ? 'In Progress' : 'Done';
+  if (t.stage === 'Done') t.progress = 100;
+  saveToStorage();
+  renderOps();
+}
+
+function updateOpsStage(taskId, val) {
+  var t = STATE.opsTasks.find(function(x){return x.id === taskId;});
+  if (!t) return;
+  t.stage = val;
+  if (val === 'Done') t.progress = 100;
+  saveToStorage();
+  renderOps();
+}
+
+function deleteOpsTask(taskId) {
+  if (!confirm('Delete this ops task?')) return;
+  STATE.opsTasks = STATE.opsTasks.filter(function(x){return x.id !== taskId;});
+  saveToStorage();
+  renderOps();
 }
 
 function openAddOpsModal() {
