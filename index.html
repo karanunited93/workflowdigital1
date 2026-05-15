@@ -329,36 +329,33 @@ var FB_DB = null;
 function defaultPeople() {
   return [
     {id:'karan', name:'Karan Verma', initials:'KV', role:'COO', color:'av-k', permission:'admin'},
-    {id:'keerthi', name:'Keerthi', initials:'KR', role:'Account Lead', color:'av-g', permission:'lead'},
-    {id:'adi', name:'Adi', initials:'AD', role:'Account Lead', color:'av-b', permission:'lead'},
-    {id:'abhijna', name:'Abhijna', initials:'AB', role:'Content', color:'av-p', permission:'member'},
-    {id:'isaac', name:'Isaac', initials:'IS', role:'Performance', color:'av-o', permission:'member'},
-    {id:'gokul', name:'Gokul', initials:'GK', role:'Design', color:'av-a', permission:'member'},
-    {id:'devi', name:'Devi', initials:'DV', role:'Social', color:'av-t', permission:'member'},
-    {id:'nisha', name:'Nisha', initials:'NS', role:'Influencer', color:'av-g', permission:'member'},
-    {id:'monish', name:'Monish', initials:'MO', role:'Performance', color:'av-b', permission:'member'},
-    {id:'satya', name:'Satya', initials:'ST', role:'Analytics', color:'av-r', permission:'member'}
+    {id:'mir', name:'Mir Mohammad', initials:'MM', role:'Account Director Media', color:'av-b', permission:'lead'},
+    {id:'nihal', name:'Muhammad Nihal', initials:'MN', role:'Sr. Analyst', color:'av-g', permission:'lead'},
+    {id:'pretthes', name:'Pretthes', initials:'PR', role:'Sr. Analyst', color:'av-p', permission:'lead'},
+    {id:'sairindhri', name:'Sairindhri Sengupta', initials:'SS', role:'Head of Creative Media', color:'av-a', permission:'lead'},
+    {id:'giritharan', name:'Giritharan', initials:'GI', role:'Performance Marketing Intern', color:'av-o', permission:'member'},
+    {id:'vishnu', name:'Vishnu Balan', initials:'VB', role:'Performance Marketing Intern', color:'av-t', permission:'member'},
+    {id:'safdar', name:'Safdar Abbas', initials:'SA', role:'Performance Marketing Intern', color:'av-r', permission:'member'},
+    {id:'shreyas', name:'Shreyas Padmanabhan', initials:'SP', role:'Performance Marketing Intern', color:'av-g', permission:'member'}
   ];
 }
 
 function defaultAccounts() {
   return [
-    {id:'mobikwik', name:'MobiKwik', emoji:'💳', mandate:'Performance + Social', lead:'keerthi', color:'#2B7FD4', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'dreamfolks', name:'DreamFolks', emoji:'✈️', mandate:'Campaign (Apr–May 2026)', lead:'karan', color:'#6B4FBB', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'laundrymate', name:'LaundryMate', emoji:'👕', mandate:'Performance + Social', lead:'keerthi', color:'#1D9E75', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'tara', name:'Tara Healthcare', emoji:'🏥', mandate:'Social + Branding', lead:'adi', color:'#D4840A', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'magniflex', name:'Magniflex', emoji:'🛏️', mandate:'Influencer + Social', lead:'keerthi', color:'#C94040', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'gocolors', name:'Go Colors', emoji:'🎨', mandate:'Performance (Onboarding)', lead:'karan', color:'#D4840A', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'inmobi', name:'InMobi', emoji:'📱', mandate:'Social Strategy', lead:'adi', color:'#2B7FD4', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'zaakpay', name:'Zaakpay', emoji:'💰', mandate:'LinkedIn Content', lead:'abhijna', color:'#1D9E75', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']},
-    {id:'bikaji', name:'Bikaji', emoji:'🍿', mandate:'Social + Content', lead:'keerthi', color:'#6B4FBB', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected']}
+    {id:'jollygunj', name:'Jollygunj', emoji:'🎪', mandate:'Social + Content', lead:'mir', color:'#6B4FBB', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'dreamfolks', name:'DreamFolks', emoji:'✈️', mandate:'Campaign + Performance', lead:'karan', color:'#2B7FD4', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'boombay', name:'Boombay', emoji:'🎶', mandate:'Social + Branding', lead:'mir', color:'#D4840A', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'laundrymate', name:'LaundryMate', emoji:'👕', mandate:'Performance + Social', lead:'nihal', color:'#1D9E75', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'iho', name:'IHO', emoji:'🏨', mandate:'Social + Content', lead:'pretthes', color:'#C94040', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'bikaji', name:'Bikaji', emoji:'🍿', mandate:'Social + Content', lead:'sairindhri', color:'#6B4FBB', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''},
+    {id:'fastrack', name:'Fastrack Stores', emoji:'⌚', mandate:'Performance + Social', lead:'mir', color:'#18170F', stages:['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'], notes:''}
   ];
 }
 
 function defaultTasks() {
   var now = new Date();
   var tasks = [];
-  var accts = ['mobikwik','dreamfolks','laundrymate','tara'];
+  var accts = ['jollygunj','dreamfolks','boombay','laundrymate'];
   var titles = [
     'Monthly content calendar','Performance report','Creative brief','Campaign setup',
     'Influencer shortlist','Ad copy review','Analytics report','Social media audit'
@@ -1181,6 +1178,7 @@ function renderAcct(acctId) {
   var tabHtml = '<div style="display:flex;align-items:center;gap:0;border-bottom:1px solid rgba(0,0,0,0.08);background:#fff;flex-shrink:0;padding:0 16px">';
   tabHtml += '<button onclick="switchAcctTab(\'board\')" id="tab-board" style="padding:11px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid #18170F;color:#18170F;cursor:pointer;font-family:inherit">Board</button>';
   tabHtml += '<button onclick="switchAcctTab(\'overview\')" id="tab-overview" style="padding:11px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;color:#6A6860;cursor:pointer;font-family:inherit">Overview</button>';
+  tabHtml += '<button onclick="switchAcctTab(\'acct-chat\')" id="tab-acct-chat" style="padding:11px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;color:#6A6860;cursor:pointer;font-family:inherit">Chat</button>';
   tabHtml += '</div>';
 
   var bodyHtml = '<div id="acct-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>';
@@ -1193,18 +1191,18 @@ function renderAcct(acctId) {
 function switchAcctTab(tab) {
   var boardBtn = document.getElementById('tab-board');
   var overBtn = document.getElementById('tab-overview');
+  var chatBtn = document.getElementById('tab-acct-chat');
+  // Reset all
+  [boardBtn, overBtn, chatBtn].forEach(function(b){ if(b){ b.style.borderBottomColor='transparent'; b.style.color='#6A6860'; } });
   if (tab === 'board') {
-    boardBtn.style.borderBottomColor = '#18170F';
-    boardBtn.style.color = '#18170F';
-    overBtn.style.borderBottomColor = 'transparent';
-    overBtn.style.color = '#6A6860';
+    if(boardBtn){ boardBtn.style.borderBottomColor='#18170F'; boardBtn.style.color='#18170F'; }
     showAcctBoard(STATE.currentAcct);
-  } else {
-    overBtn.style.borderBottomColor = '#18170F';
-    overBtn.style.color = '#18170F';
-    boardBtn.style.borderBottomColor = 'transparent';
-    boardBtn.style.color = '#6A6860';
+  } else if (tab === 'overview') {
+    if(overBtn){ overBtn.style.borderBottomColor='#18170F'; overBtn.style.color='#18170F'; }
     showAcctOverview(STATE.currentAcct);
+  } else if (tab === 'acct-chat') {
+    if(chatBtn){ chatBtn.style.borderBottomColor='#18170F'; chatBtn.style.color='#18170F'; }
+    showAcctChat(STATE.currentAcct);
   }
 }
 
@@ -1217,7 +1215,6 @@ function showAcctBoard(acctId) {
   var tasks = STATE.tasks.filter(function(t){return t.acctId === acctId;});
   var stages = acct.stages;
 
-  // CRITICAL: fully inlined styles, NO template literals, plain string concat
   var panelOpen = document.getElementById('task-panel') && document.getElementById('task-panel').classList.contains('open');
   var boardPad = panelOpen ? 'padding:14px;padding-right:694px' : 'padding:14px';
   var html = '<div style="width:100%;height:100%;overflow-x:auto;overflow-y:hidden;display:flex;gap:11px;' + boardPad + '">';
@@ -1230,34 +1227,45 @@ function showAcctBoard(acctId) {
     html += '<div style="width:230px;min-width:230px;flex-shrink:0;display:flex;flex-direction:column;height:calc(100vh - 158px);' + colBg + 'border-radius:8px;border:1px solid rgba(0,0,0,0.07)">';
     html += '<div style="padding:8px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.07)">';
     html += '<span style="font-size:12px;font-weight:600;color:#6A6860">' + stageName + '</span>';
-    html += '<span style="font-size:10px;color:#A8A69E;background:#fff;padding:1px 6px;border-radius:10px;border:1px solid rgba(0,0,0,0.07)">' + stageTasks.length + '</span>';
+    html += '<span style="font-size:10px;color:#A8A69E;background:#fff;padding:1px 6px;border-radius:10px;border:1px solid rgba(0,0,0,0.07)" id="col-count-' + acctId + '-' + si + '">' + stageTasks.length + '</span>';
     html += '</div>';
-    html += '<div style="flex:1;overflow-y:auto;padding:7px" id="col-cards-' + si + '">';
+
+    // Drop zone column body
+    html += '<div style="flex:1;overflow-y:auto;padding:7px" id="col-cards-' + si + '"';
+    html += ' ondragover="boardDragOver(event,' + si + ')"';
+    html += ' ondrop="boardDrop(event,\'' + acctId + '\',' + si + ')"';
+    html += ' ondragleave="boardDragLeave(event)"';
+    html += '>';
 
     for (var ti = 0; ti < stageTasks.length; ti++) {
       var t = stageTasks[ti];
       var cardBorder = isOverdue(t.dueDate) && t.stage < 4 ? 'border:1px solid rgba(201,64,64,0.25);' : 'border:1px solid rgba(0,0,0,0.08);';
-      html += '<div onclick="openTask(\'' + t.id + '\',\'' + acctId + '\')" style="background:#fff;border-radius:8px;' + cardBorder + 'padding:10px;margin-bottom:7px;cursor:pointer;transition:box-shadow 0.12s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+      // Card: draggable, click still opens panel
+      html += '<div';
+      html += ' draggable="true"';
+      html += ' data-task-id="' + t.id + '"';
+      html += ' ondragstart="boardDragStart(event,\'' + t.id + '\')"';
+      html += ' ondragend="boardDragEnd(event)"';
+      html += ' onclick="boardCardClick(event,\'' + t.id + '\',\'' + acctId + '\')"';
+      html += ' style="background:#fff;border-radius:8px;' + cardBorder + 'padding:10px;margin-bottom:7px;cursor:grab;transition:box-shadow 0.12s,opacity 0.15s"';
+      html += ' onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'"';
+      html += ' onmouseout="this.style.boxShadow=\'none\'"';
+      html += '>';
       html += '<div style="font-size:12px;font-weight:500;color:#18170F;margin-bottom:7px;line-height:1.4">' + t.title + '</div>';
       html += '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">';
-
       var priCls = {urgent:'background:#FDDCDC;color:#C94040',high:'background:#FDE8C8;color:#D4840A',medium:'background:#D0E8F9;color:#2B7FD4',low:'background:#E8E5D8;color:#6A6860'}[t.priority] || '';
       html += '<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;' + priCls + '">' + (t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : '') + '</span>';
-
       if (t.dueDate) {
         var dueCls = isOverdue(t.dueDate) && t.stage < 4 ? 'color:#C94040;font-weight:600' : 'color:#6A6860';
         html += '<span style="font-size:10px;' + dueCls + '">' + formatDate(t.dueDate) + '</span>';
       }
-
       html += '<div style="margin-left:auto">' + avatarHtml(t.assignee, 'sm') + '</div>';
       html += '</div></div>';
     }
 
     html += '</div>';
 
-    // Add task button at bottom
     if (isLead()) {
-      var stageIdx = si; // capture for closure — use data attribute approach
       html += '<div style="padding:4px 7px 7px;flex-shrink:0">';
       html += '<button onclick="openAddTaskModal(\'' + acctId + '\',' + si + ')" style="width:100%;padding:7px;text-align:left;font-size:12px;color:#A8A69E;background:transparent;border:1px dashed rgba(0,0,0,0.12);border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.12s" onmouseover="this.style.background=\'#fff\';this.style.color=\'#18170F\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'#A8A69E\'">+ Add task</button>';
       html += '</div>';
@@ -1265,8 +1273,75 @@ function showAcctBoard(acctId) {
     html += '</div>';
   }
   html += '</div>';
-
   body.innerHTML = html;
+}
+
+// Drag and drop state
+var DRAG_TASK_ID = null;
+var DRAG_SRC_STAGE = null;
+
+function boardDragStart(event, taskId) {
+  DRAG_TASK_ID = taskId;
+  var task = STATE.tasks.find(function(t){return t.id === taskId;});
+  DRAG_SRC_STAGE = task ? task.stage : null;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', taskId);
+  // Fade the card being dragged
+  setTimeout(function(){ if(event.target) event.target.style.opacity = '0.4'; }, 0);
+}
+
+function boardDragEnd(event) {
+  if (event.target) event.target.style.opacity = '1';
+  // Remove all drop highlights
+  document.querySelectorAll('[id^="col-cards-"]').forEach(function(el){
+    el.style.background = '';
+    el.style.outline = '';
+  });
+}
+
+function boardDragOver(event, stageIdx) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  var col = document.getElementById('col-cards-' + stageIdx);
+  if (col) col.style.outline = '2px dashed rgba(29,158,117,0.5)';
+}
+
+function boardDragLeave(event) {
+  // Only remove if leaving the column (not entering a child)
+  var col = event.currentTarget;
+  if (col && !col.contains(event.relatedTarget)) {
+    col.style.outline = '';
+  }
+}
+
+function boardDrop(event, acctId, newStage) {
+  event.preventDefault();
+  var taskId = event.dataTransfer.getData('text/plain') || DRAG_TASK_ID;
+  if (!taskId) return;
+  var task = STATE.tasks.find(function(t){return t.id === taskId;});
+  if (!task || task.stage === newStage) return;
+
+  var acct = getAccount(acctId);
+  var stages = acct ? acct.stages : ['Backlog','Planning','In Progress','Ready for Review','Approved','Rejected'];
+  var oldStage = task.stage;
+  task.stage = newStage;
+  task.activity = task.activity || [];
+  task.activity.push({type:'stage', user: STATE.currentUser ? STATE.currentUser.id : '', text:'Moved to ' + stages[newStage], time: new Date().toISOString()});
+  logActivity('Task', '"' + task.title + '" moved to ' + stages[newStage]);
+  if (newStage === 4) awardApproved(task);
+  saveToStorage();
+  showAcctBoard(acctId);
+}
+
+function boardCardClick(event, taskId, acctId) {
+  // Don't open panel if this was a drag
+  if (DRAG_TASK_ID && DRAG_TASK_ID === taskId && DRAG_SRC_STAGE !== null) {
+    var task = STATE.tasks.find(function(t){return t.id === taskId;});
+    if (task && task.stage !== DRAG_SRC_STAGE) { DRAG_TASK_ID = null; DRAG_SRC_STAGE = null; return; }
+  }
+  DRAG_TASK_ID = null;
+  DRAG_SRC_STAGE = null;
+  openTask(taskId, acctId);
 }
 
 function showAcctOverview(acctId) {
@@ -1305,9 +1380,24 @@ function showAcctOverview(acctId) {
   html += '<div>';
   html += '<div class="card" style="padding:14px;margin-bottom:12px">';
   html += '<div style="font-size:11px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Account Info</div>';
-  html += '<div style="font-size:12px;margin-bottom:6px;color:#6A6860">' + acct.mandate + '</div>';
-  html += '<div style="display:flex;align-items:center;gap:6px;margin-top:10px">' + avatarHtml(acct.lead, 'sm') +
-    '<span style="font-size:12px;font-weight:500">' + lead.name + '</span><span style="font-size:10px;color:#A8A69E">Lead</span></div>';
+  html += '<div style="font-size:12px;margin-bottom:10px;color:#6A6860">' + acct.mandate + '</div>';
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">' + avatarHtml(acct.lead, 'sm') +
+    '<span style="font-size:12px;font-weight:500">' + lead.name + '</span><span style="font-size:10px;color:#A8A69E;margin-left:2px">Lead</span></div>';
+  // Team — unique assignees on this account
+  var teamIds = [];
+  tasks.forEach(function(t){ if(t.assignee && teamIds.indexOf(t.assignee)<0 && t.assignee!==acct.lead) teamIds.push(t.assignee); });
+  if (teamIds.length > 0) {
+    html += '<div style="font-size:10px;font-weight:600;color:#A8A69E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px">Team</div>';
+    teamIds.forEach(function(pid) {
+      var p = getPerson(pid);
+      var openCount = tasks.filter(function(t){return t.assignee===pid && t.stage<4;}).length;
+      html += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">';
+      html += avatarHtml(pid, 'sm');
+      html += '<span style="flex:1;font-size:12px;font-weight:500">' + p.name + '</span>';
+      html += '<span style="font-size:10px;color:#A8A69E">' + openCount + ' open</span>';
+      html += '</div>';
+    });
+  }
   html += '</div>';
 
   // Stage edit
@@ -1333,6 +1423,65 @@ function showAcctOverview(acctId) {
   html += '</div>';
   html += '</div>';
   body.innerHTML = html;
+}
+
+function showAcctChat(acctId) {
+  var acct = getAccount(acctId);
+  if (!acct) return;
+  var body = document.getElementById('acct-body');
+  if (!body) return;
+  body.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column';
+
+  var chatKey = 'acct_' + acctId;
+  var msgs = STATE.messages[chatKey] || [];
+
+  var html = '<div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px" id="acct-chat-msgs">';
+  if (msgs.length === 0) {
+    html += '<div style="color:#A8A69E;font-size:13px;text-align:center;padding:30px">No messages yet. Start the conversation.</div>';
+  }
+  msgs.forEach(function(m) {
+    var p = getPerson(m.from);
+    var mine = STATE.currentUser && m.from === STATE.currentUser.id;
+    html += '<div style="display:flex;gap:8px;max-width:70%;' + (mine?'align-self:flex-end;flex-direction:row-reverse':'') + '">';
+    if (!mine) html += avatarHtml(m.from, 'sm');
+    html += '<div>';
+    if (!mine) html += '<div style="font-size:10px;color:#A8A69E;margin-bottom:2px;font-weight:500">' + p.name + '</div>';
+    html += '<div style="background:' + (mine?'#18170F':'#F5F4F0') + ';color:' + (mine?'#fff':'#18170F') + ';border-radius:8px;padding:8px 11px;font-size:12px;line-height:1.5">' + m.text + '</div>';
+    html += '<div style="font-size:10px;color:#A8A69E;margin-top:2px;' + (mine?'text-align:right':'') + '">' + timeAgo(m.time) + '</div>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  html += '<div style="padding:12px 16px;border-top:1px solid rgba(0,0,0,0.07);display:flex;gap:8px;align-items:flex-end;flex-shrink:0">';
+  html += avatarHtml(STATE.currentUser ? STATE.currentUser.id : '', 'sm');
+  html += '<textarea id="acct-chat-input" style="flex:1;padding:8px 11px;border-radius:6px;border:1px solid rgba(0,0,0,0.12);font-size:13px;resize:none;max-height:80px;overflow-y:auto;font-family:inherit" placeholder="Message ' + acct.name + ' team..." onkeydown="acctChatKeydown(event,\'' + acctId + '\')" rows="1"></textarea>';
+  html += '<button class="btn" onclick="sendAcctChat(\'' + acctId + '\')" style="padding:8px 14px">↑</button>';
+  html += '</div>';
+
+  body.innerHTML = html;
+  var msgsEl = document.getElementById('acct-chat-msgs');
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+function sendAcctChat(acctId) {
+  var input = document.getElementById('acct-chat-input');
+  if (!input || !input.value.trim() || !STATE.currentUser) return;
+  var chatKey = 'acct_' + acctId;
+  STATE.messages[chatKey] = STATE.messages[chatKey] || [];
+  STATE.messages[chatKey].push({
+    from: STATE.currentUser.id,
+    text: input.value.trim(),
+    time: new Date().toISOString()
+  });
+  input.value = '';
+  saveToStorage();
+  if (FB_DB) {
+    try { FB_DB.ref('messages/' + chatKey).set(STATE.messages[chatKey]).catch(function(){}); } catch(e) {}
+  }
+  showAcctChat(acctId);
+}
+
+function acctChatKeydown(event, acctId) {
+  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendAcctChat(acctId); }
 }
 
 function updateStageName(acctId, idx, val) {
